@@ -149,7 +149,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <div class="brand-mark" aria-hidden="true">租</div>
       <div>
         <h1>Taipei Rental Watch</h1>
-        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$25,000 incl. management fee · cooking allowed</div>
+        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$28,000 incl. management fee · cooking allowed</div>
       </div>
     </div>
     <div class="stats">
@@ -169,7 +169,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <button class="chip toggle-filters" id="f-toggle" aria-expanded="false">More filters</button>
     </div>
     <div class="row more-filters">
-      <label class="ctrl" for="f-max"><span class="label">Max / month</span> <input type="range" id="f-max" min="10000" max="25000" step="500" value="25000"> <b id="f-max-v" style="font-variant-numeric:tabular-nums">25,000</b></label>
+      <label class="ctrl" for="f-max"><span class="label">Max / month</span> <input type="range" id="f-max" min="10000" max="28000" step="500" value="28000"> <b id="f-max-v" style="font-variant-numeric:tabular-nums">28,000</b></label>
       <label class="ctrl" for="f-walk"><span class="label">Walk</span>
         <select id="f-walk"><option value="400">≤ 5 min</option><option value="640">≤ 8 min</option><option value="800" selected>≤ 10 min</option></select></label>
       <label class="ctrl" for="f-kind"><span class="label">Type</span>
@@ -237,7 +237,7 @@ const ago = (iso) => {
 };
 
 const state = {
-  stations: new Set(store.get('stations', [])), max: 25000, walk: 800, kind: '', sort: 'new',
+  stations: new Set(store.get('stations', [])), max: 28000, walk: 800, kind: '', sort: 'new',
   must: new Set(), view: '', saved: new Set(store.get('saved', [])), hidden: new Set(store.get('hidden', [])),
   shown: 30, open: new Set(),
   // Saved listings keep a copy, so they stay visible after the source takes them down.

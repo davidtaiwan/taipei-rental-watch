@@ -1,7 +1,7 @@
 {
   "sections": "1,2,3,5,6",
   "kinds": [2, 3, 1],
-  "maxTotal": 25000,
+  "maxTotal": 28000,
   "radius": 800,
   "maxPages": 40,
   "concurrency": 3,
