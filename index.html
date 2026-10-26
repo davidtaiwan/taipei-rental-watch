@@ -175,7 +175,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <label class="ctrl" for="f-kind"><span class="label">Type</span>
         <select id="f-kind"><option value="">All types</option><option>Private studio</option><option>Studio in shared flat</option><option>Entire apartment</option></select></label>
       <label class="ctrl" for="f-sort"><span class="label">Sort</span>
-        <select id="f-sort"><option value="new">Newest first</option><option value="price">Cheapest first</option><option value="near">Closest to MRT</option><option value="size">Largest first</option></select></label>
+        <select id="f-sort"><option value="new">Newest first</option><option value="price">Cheapest first</option><option value="pricedesc">Most expensive first</option><option value="near">Closest to MRT</option><option value="size">Largest first</option></select></label>
     </div>
     <div class="row more-filters">
       <span class="label">Must have</span>
@@ -275,6 +275,7 @@ function filtered() {
   const cmp = {
     new: (a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || b.id.localeCompare(a.id),
     price: (a, b) => a.total - b.total,
+    pricedesc: (a, b) => b.total - a.total,
     near: (a, b) => near(a) - near(b),
     size: (a, b) => (b.ping || 0) - (a.ping || 0)
   }[state.sort];
