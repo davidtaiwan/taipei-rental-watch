@@ -54,7 +54,8 @@ const fresh591 = [];
 for (const l of res.listings) {
   const old = byId.get(l.id);
   if (!old) fresh591.push(l.id);
-  byId.set(l.id, { ...l, firstSeen: old?.firstSeen || now, lastSeen: now, checkedAt: now });
+  const keep = old ? { titleEn: old.titleEn, descEn: old.descEn, trHash: old.trHash, trBy: old.trBy } : {};
+  byId.set(l.id, { ...l, ...keep, firstSeen: old?.firstSeen || now, lastSeen: now, checkedAt: now });
 }
 for (const id of res.checked) if (!res.listings.find((l) => l.id === id)) { checked[id] = now; byId.delete(id); }
 for (const l of byId.values()) {

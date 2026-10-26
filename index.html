@@ -120,6 +120,12 @@ dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .fac { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); }
 .fac.off { background: transparent; border: 1px dashed var(--line); color: var(--off); text-decoration: line-through; }
 .zh { font-family: var(--zh); }
+.tagline { font-size: 13px; color: var(--muted); font-style: italic; line-height: 1.4; overflow-wrap: anywhere; }
+.desc.en { font-family: var(--body); color: var(--ink); white-space: pre-line; max-height: 260px; }
+details.orig { margin-top: 8px; font-size: 12.5px; }
+details.orig summary { cursor: pointer; color: var(--accent); }
+details.orig .desc { margin-top: 6px; }
+.trnote { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 .desc { font-family: var(--zh); font-size: 13px; color: var(--muted); max-height: 180px; overflow: auto; border-left: 2px solid var(--line); padding-left: 10px; }
 .loadmore { display: flex; justify-content: center; padding-top: 22px; }
 footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
@@ -302,6 +308,7 @@ function card(l) {
     <div class="body">
       <div class="price"><span class="total">NT$${nt(l.total)}<small>/ month</small></span><span class="split">${esc(split)}</span></div>
       <div class="headline">${esc(headline)}</div>
+      ${l.titleEn ? `<div class="tagline">“${esc(l.titleEn)}”</div>` : ''}
       <div class="where">${esc(l.district ? l.district + ' District' : '')}${l.building ? ' · ' + esc(l.building) : ''}${inc ? ' · ' + esc(inc) : ''}</div>
       <div class="stations">${l.stations.map((s) => `<span class="stn">${codes(s.name)}${esc(s.name)} <em>${mins(s.m)} min · ${s.m} m</em></span>`).join('')}</div>
       <div class="feats">
@@ -328,13 +335,18 @@ function card(l) {
           ${l.legalUse ? `<dt>Legal use</dt><dd>${esc(l.legalUse)}${l.legalUse === 'Commercial' ? ' (may not qualify for rent subsidy or household registration)' : ''}</dd>` : ''}
           ${l.lister ? `<dt>Listed by</dt><dd>${esc(l.lister)}</dd>` : ''}
           <dt>Address</dt><dd class="zh">${esc(l.addressZh || '')}</dd>
-          <dt>Original title</dt><dd class="zh">${esc(l.titleZh || '')}</dd>
+          <dt>Listing title</dt><dd>${l.titleEn ? esc(l.titleEn) + '<br>' : ''}<span class="zh" style="color:var(--muted)">${esc(l.titleZh || '')}</span></dd>
           <dt>First seen</dt><dd>${l.firstSeen ? new Date(l.firstSeen).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '–'}</dd>
           <dt>Listing ID</dt><dd><span style="font-family:var(--mono)">${esc(l.src)}-${esc(l.id)}</span></dd>
         </dl>
         ${l.tags?.length ? `<div><p class="h4">Listing notes</p><div class="facs">${l.tags.map((t) => `<span class="fac">${esc(t)}</span>`).join('')}</div></div>` : ''}
         ${(l.facilities?.length || l.missing?.length) ? `<div><p class="h4">Furniture &amp; equipment</p><div class="facs">${(l.facilities || []).map((f) => `<span class="fac">${esc(f)}</span>`).join('')}${(l.missing || []).map((f) => `<span class="fac off" title="Not provided">${esc(f)}</span>`).join('')}</div></div>` : ''}
-        ${l.descZh ? `<div><p class="h4">Landlord's description (Chinese)</p><div class="desc">${esc(l.descZh)}</div><p style="margin:6px 0 0"><a href="${gt}" target="_blank" rel="noopener noreferrer">Read the full listing in English (Google Translate)</a></p></div>` : ''}
+        ${l.descZh ? `<div><p class="h4">Landlord's description</p>
+          ${l.descEn ? `<div class="desc en">${esc(l.descEn)}</div>
+          <details class="orig"><summary>Show original Chinese</summary><div class="desc">${esc(l.descZh)}</div></details>
+          <p class="trnote">Translated automatically by ${esc(l.trBy || 'machine translation')}; check details with the landlord.</p>`
+          : `<p class="trnote">English translation arrives with the next update (within 2 hours).</p><div class="desc">${esc(l.descZh)}</div>`}
+          <p style="margin:6px 0 0"><a href="${gt}" target="_blank" rel="noopener noreferrer">Open the original listing in English (Google Translate)</a></p></div>` : ''}
         <div><a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">Source: ${esc(l.url)}</a></div>
       </div>
     </div>

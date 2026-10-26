@@ -129,7 +129,7 @@ async function crawl591(CFG) {
       dryer: /烘衣|烘乾|洗脫烘|乾衣機|洗烘/.test(all), gym: /健身/.test(all), moto: /機車/.test(all),
       tags: p.tags.map((x) => TAG[x]).filter(Boolean), lister: who.startsWith('屋主') ? 'Owner' : who ? 'Agent' : '',
       postedZh: (t.match(/此房屋在(.{1,12}?)發佈/) || [])[1] || '',
-      photos: photos.slice(0, 12), descZh: desc.replace(/\s+/g, ' ').slice(0, 700),
+      photos: photos.slice(0, 12), descZh: desc.replace(/\s+/g, ' ').slice(0, 2000),
     };
   }
 
