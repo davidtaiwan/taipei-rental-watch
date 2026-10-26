@@ -1,0 +1,50 @@
+name: Update listings
+
+on:
+  schedule:
+    - cron: "17 */2 * * *" # every 2 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: update-listings
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.48.2
+          npx playwright install --with-deps chromium
+      - name: Scrape 591
+        run: node scripts/scrape.mjs
+      - name: Commit data
+        run: |
+          git config user.name "listings-bot"
+          git config user.email "listings-bot@users.noreply.github.com"
+          git add data/listings.json data/meta.json data/checked.json
+          git diff --cached --quiet || git commit -m "Update listings $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push
+      - name: Notify about new listings
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: |
+          body="$(node scripts/notify.mjs)"
+          [ -z "$body" ] && exit 0
+          num=$(gh issue list --label new-listings --state open --json number --jq '.[0].number')
+          if [ -z "$num" ]; then
+            gh label create new-listings --color 1D8F6E --force
+            num=$(gh issue create --title "New listings" --label new-listings --body "Each update that finds new matches posts a comment here. Watch this repository (or this issue) to get them by email or in the GitHub app." | grep -o '[0-9]*$')
+          fi
+          gh issue comment "$num" --body "$body"

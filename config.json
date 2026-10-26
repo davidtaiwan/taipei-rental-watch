@@ -1,0 +1,22 @@
+{
+  "sections": "1,2,3,5,6",
+  "kinds": [2, 3, 1],
+  "maxTotal": 25000,
+  "radius": 800,
+  "maxPages": 40,
+  "concurrency": 3,
+  "delayMs": 400,
+  "stations": {
+    "公館": "Gongguan",
+    "古亭": "Guting",
+    "台電大樓": "Taipower Building",
+    "中正紀念堂": "CKS Memorial Hall",
+    "台大醫院": "NTU Hospital",
+    "台北車站": "Taipei Main Station",
+    "東門": "Dongmen",
+    "中山": "Zhongshan",
+    "西門": "Ximen",
+    "大安": "Da'an",
+    "大安森林公園": "Da'an Park"
+  }
+}
