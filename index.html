@@ -44,6 +44,12 @@ header.top { background: var(--surface); border-bottom: 1px solid var(--line); }
 h1 { font: 800 30px/1 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; }
 .sub { color: var(--muted); font-size: 13px; }
 .stats { margin-left: auto; display: flex; gap: 22px; font-size: 13px; color: var(--muted); }
+.statbtn { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.statbtn:hover b, .statbtn[aria-pressed="true"] b { color: var(--accent); }
+.badge.gone { background: var(--ink); color: var(--bg); }
+.btn.save svg { width: 15px; height: 15px; }
+.btn.save[aria-pressed="true"] svg { fill: currentColor; }
+.savednote { font-size: 12.5px; color: var(--muted); }
 .stats b { display: block; font: 800 26px/1 var(--display); color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---------- filters ---------- */
@@ -142,6 +148,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
     <div class="stats">
       <div><b id="st-total">–</b>listings</div>
       <div><b id="st-new">–</b>new since last visit</div>
+      <div><button class="statbtn" data-v="saved" aria-pressed="false" title="Show saved listings"><b id="st-saved">0</b>saved</button></div>
       <div><b id="st-upd">–</b>last checked</div>
     </div>
   </div>
@@ -204,6 +211,7 @@ const STN = {
 const IMG = (p, size) => `https://img1.591.com.tw/house/${p}!${size}`;
 const ICON = {
   yes: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5l3.2 3L13 4.5"/></svg>',
+  star: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/></svg>',
   no: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/></svg>'
 };
 const store = {
@@ -224,18 +232,30 @@ const ago = (iso) => {
 const state = {
   stations: new Set(store.get('stations', [])), max: 25000, walk: 800, kind: '', sort: 'new',
   must: new Set(), view: '', saved: new Set(store.get('saved', [])), hidden: new Set(store.get('hidden', [])),
-  shown: 30, open: new Set()
+  shown: 30, open: new Set(),
+  // Saved listings keep a copy, so they stay visible after the source takes them down.
+  savedSnap: store.get('savedSnap', {})
 };
+for (const id of state.saved) if (!state.savedSnap[id]) state.savedSnap[id] = { savedAt: null, listing: null };
+function persistSaved() { store.set('saved', [...state.saved]); store.set('savedSnap', state.savedSnap); }
+function savedList() {
+  const live = new Map(ALL.map((l) => [l.id, l]));
+  return [...state.saved].map((id) => {
+    const snap = state.savedSnap[id] || {};
+    const l = live.get(id) || snap.listing;
+    return l ? { ...l, _gone: !live.has(id), _savedAt: snap.savedAt } : null;
+  }).filter(Boolean).sort((a, b) => (b._savedAt || '').localeCompare(a._savedAt || ''));
+}
 const lastVisit = store.get('lastVisit', null);
 let ALL = [];
 
 function isNew(l) { return lastVisit ? (l.firstSeen || '') > lastVisit : Date.now() - Date.parse(l.firstSeen || 0) < 2 * 864e5; }
 
 function filtered() {
+  if (state.view === 'saved') return savedList();
   let out = ALL.filter((l) => {
     if (state.view === 'hidden') return state.hidden.has(l.id);
     if (state.hidden.has(l.id)) return false;
-    if (state.view === 'saved' && !state.saved.has(l.id)) return false;
     if (state.view === 'newonly' && !isNew(l)) return false;
     if (l.total > state.max) return false;
     if (state.kind && l.kind !== state.kind) return false;
@@ -276,7 +296,7 @@ function card(l) {
     <div class="gallery">
       <div class="slides" tabindex="0" aria-label="Photos">${slides}</div>
       ${photos.length > 1 ? `<button class="gbtn prev" data-act="prev" aria-label="Previous photo">‹</button><button class="gbtn next" data-act="next" aria-label="Next photo">›</button><span class="gcount">1/${photos.length}</span>` : ''}
-      <div class="badges">${isNew(l) ? '<span class="badge new">New</span>' : ''}<span class="badge">${esc(l.src)}</span></div>
+      <div class="badges">${l._gone ? '<span class="badge gone">No longer listed</span>' : isNew(l) ? '<span class="badge new">New</span>' : ''}<span class="badge">${esc(l.src)}</span></div>
     </div>
     <div class="body">
       <div class="price"><span class="total">NT$${nt(l.total)}<small>/ month</small></span><span class="split">${esc(split)}</span></div>
@@ -287,9 +307,10 @@ function card(l) {
         ${feat(true, 'Cooking allowed')}${feat(l.kitchen, 'Kitchen gear')}${feat(l.window, 'Window')}
         ${feat(l.balcony, 'Balcony')}${feat(l.dryer, 'Dryer')}${feat(l.gym, 'Gym')}${feat(l.moto, 'Scooter parking')}
       </div>
+      ${saved && l._savedAt ? `<div class="savednote">Saved ${new Date(l._savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${l._gone ? ' · the source has taken this listing down, so it may already be rented' : ''}</div>` : ''}
       <div class="actions">
         <a class="btn primary" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">Open on ${esc(l.src)}</a>
-        <button class="btn" data-act="save" aria-pressed="${saved}">${saved ? 'Saved' : 'Save'}</button>
+        <button class="btn save" data-act="save" aria-pressed="${saved}">${ICON.star}${saved ? 'Saved' : 'Save for later'}</button>
         <button class="btn" data-act="hide" aria-pressed="${hidden}">${hidden ? 'Unhide' : 'Hide'}</button>
         <button class="btn more" data-act="more" aria-expanded="${open}">${open ? 'Show less' : 'Show more'}</button>
       </div>
@@ -328,8 +349,15 @@ function render() {
   empty.hidden = list.length > 0;
   empty.textContent = ALL.length ? 'No listings match these filters. Try a longer walk or fewer must-haves.' : 'Loading listings…';
   const newCount = ALL.filter((l) => !state.hidden.has(l.id) && isNew(l)).length;
-  document.getElementById('result-line').innerHTML = `Showing <b>${Math.min(list.length, state.shown)}</b> of <b>${list.length}</b> matching listings`;
+  document.getElementById('st-saved').textContent = state.saved.size;
   document.getElementById('st-new').textContent = newCount;
+  if (state.view === 'saved') {
+    document.getElementById('result-line').innerHTML = `<b>${list.length}</b> saved listing${list.length === 1 ? '' : 's'}, most recently saved first. Filters don't apply here.`;
+    empty.textContent = 'Nothing saved yet. Press "Save for later" on any listing to keep it here.';
+    document.querySelectorAll('.slides').forEach(watchSlides);
+    return;
+  }
+  document.getElementById('result-line').innerHTML = `Showing <b>${Math.min(list.length, state.shown)}</b> of <b>${list.length}</b> matching listings`;
   document.querySelectorAll('.slides').forEach(watchSlides);
 }
 
@@ -385,9 +413,16 @@ document.addEventListener('click', (e) => {
     d.hidden = !d.hidden; d.hidden ? state.open.delete(id) : state.open.add(id);
     t.textContent = d.hidden ? 'Show more' : 'Show less'; t.setAttribute('aria-expanded', !d.hidden);
   } else if (act === 'save') {
-    state.saved.has(id) ? state.saved.delete(id) : state.saved.add(id);
-    store.set('saved', [...state.saved]);
-    t.setAttribute('aria-pressed', state.saved.has(id)); t.textContent = state.saved.has(id) ? 'Saved' : 'Save';
+    if (state.saved.has(id)) { state.saved.delete(id); delete state.savedSnap[id]; }
+    else {
+      const l = ALL.find((x) => x.id === id);
+      state.saved.add(id); state.savedSnap[id] = { savedAt: new Date().toISOString(), listing: l || null };
+    }
+    persistSaved();
+    if (state.view === 'saved') { render(); return; }
+    t.setAttribute('aria-pressed', state.saved.has(id));
+    t.innerHTML = ICON.star + (state.saved.has(id) ? 'Saved' : 'Save for later');
+    document.getElementById('st-saved').textContent = state.saved.size;
   } else if (act === 'hide') {
     state.hidden.has(id) ? state.hidden.delete(id) : state.hidden.add(id);
     store.set('hidden', [...state.hidden]); render();
@@ -409,6 +444,9 @@ async function load() {
       fetch('data/meta.json', { cache: 'no-cache' }).then((r) => r.json()).catch(() => ({}))
     ]);
     ALL = list;
+    // Refresh saved copies with the latest data for listings that are still up.
+    for (const l of ALL) if (state.saved.has(l.id)) state.savedSnap[l.id] = { savedAt: state.savedSnap[l.id]?.savedAt || new Date().toISOString(), listing: l };
+    persistSaved();
     document.getElementById('st-total').textContent = ALL.length;
     document.getElementById('st-upd').textContent = ago(meta.lastRun);
     const src = Object.entries(meta.sources || {}).map(([k, v]) => `${k}: ${v.matched} matches, checked ${ago(v.lastRun)}`).join(' · ');
