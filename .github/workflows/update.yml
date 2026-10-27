@@ -1,22 +1,60 @@
 name: Update listings
+run-name: ${{ (github.event_name == 'schedule' || inputs.mode == 'loop') && 'Listings loop' || 'Listings check' }}
+
+# How this keeps a 15-minute rhythm:
+# GitHub runs frequent schedules late or skips them on small repos, so one "loop" run
+# checks every 15 minutes for about 5.5 hours, then starts the next loop itself.
+# The 2-hourly schedule only restarts the loop if it ever stops.
+# Running the workflow by hand ("once") does a single check right away.
 
 on:
   schedule:
-    - cron: "*/15 * * * *" # every 15 minutes
+    - cron: "11 */2 * * *"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "once = one check now; loop = check every 15 minutes for ~5.5 hours"
+        type: choice
+        options: [once, loop]
+        default: once
 
 permissions:
   contents: write
   issues: write
-
-concurrency:
-  group: update-listings
-  cancel-in-progress: false
+  actions: write
 
 jobs:
-  update:
+  gate:
+    # Scheduled runs only start a loop when none is running.
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    outputs:
+      busy: ${{ steps.check.outputs.busy }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh api "repos/${{ github.repository }}/actions/workflows/update.yml/runs?per_page=30" \
+            --jq '[.workflow_runs[] | select(.id != ${{ github.run_id }} and .status != "completed" and (.display_title | test("loop")))] | length')
+          echo "Loops already running or queued: $n"
+          echo "busy=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: gate
+    if: always() && (github.event_name != 'schedule' || needs.gate.outputs.busy == 'false')
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    concurrency:
+      group: ${{ (github.event_name == 'schedule' || inputs.mode == 'loop') && 'listings-loop' || format('listings-once-{0}', github.run_id) }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+      LOOP: ${{ (github.event_name == 'schedule' || inputs.mode == 'loop') && '1' || '0' }}
+      INTERVAL_SEC: 900
+      LOOP_SEC: 19800
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,31 +64,61 @@ jobs:
         run: |
           npm install --no-save playwright@1.48.2
           npx playwright install --with-deps chromium
-      - name: Scrape 591
-        run: node scripts/scrape.mjs
-      - name: Translate descriptions
-        continue-on-error: true
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: node scripts/translate.mjs
-      - name: Commit data
+      - name: Check 591
         run: |
           git config user.name "listings-bot"
           git config user.email "listings-bot@users.noreply.github.com"
-          git add data/listings.json data/meta.json data/checked.json
-          git diff --cached --quiet || git commit -m "Update listings $(date -u +%Y-%m-%dT%H:%MZ)"
-          git pull --rebase origin main
-          git push
-      - name: Notify about new listings
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+
+          notify() {
+            body="$(node scripts/notify.mjs)" || return 0
+            [ -z "$body" ] && return 0
+            num=$(gh issue list --label new-listings --state open --json number --jq '.[0].number')
+            if [ -z "$num" ]; then
+              gh label create new-listings --color 1D8F6E --force
+              num=$(gh issue create --title "New listings" --label new-listings --body "Each check that finds new matches posts a comment here. Subscribe to this issue to get them by email or in the GitHub app." | grep -o '[0-9]*$')
+            fi
+            gh issue comment "$num" --body "$body" || true
+          }
+
+          save() {
+            git add data/listings.json data/meta.json data/checked.json
+            git diff --cached --quiet && return 0
+            git commit -q -m "Update listings $(date -u +%Y-%m-%dT%H:%MZ)"
+            for i in 1 2 3 4; do
+              git push -q && return 0
+              # Another check pushed first: replay our fresh data on top of theirs.
+              git pull -q --rebase -X theirs origin main || git rebase --skip || true
+              sleep 3
+            done
+            echo "::warning::Could not push data after 4 tries"
+          }
+
+          end=$(( $(date +%s) + LOOP_SEC ))
+          while :; do
+            start=$(date +%s)
+            git pull -q --rebase -X theirs origin main || true
+            rm -f data/new.json
+            if node scripts/scrape.mjs; then
+              node scripts/translate.mjs || echo "::warning::Translation step failed"
+              next=$(( start + INTERVAL_SEC ))
+              if [ "$LOOP" = "1" ] && [ "$next" -lt "$end" ]; then
+                NEXT=$(date -u -d "@$next" +%Y-%m-%dT%H:%M:%SZ) node -e "
+                  const fs=require('fs');const m=JSON.parse(fs.readFileSync('data/meta.json','utf8'));
+                  m.nextRun=process.env.NEXT;fs.writeFileSync('data/meta.json',JSON.stringify(m,null,1));"
+              fi
+              save
+              notify
+            else
+              echo "::warning::591 check failed; trying again next round"
+            fi
+            [ "$LOOP" = "1" ] || break
+            next=$(( start + INTERVAL_SEC ))
+            [ "$next" -ge "$end" ] && break
+            wait=$(( next - $(date +%s) ))
+            [ "$wait" -gt 0 ] && sleep "$wait"
+          done
+      - name: Start the next loop
+        if: ${{ !cancelled() && env.LOOP == '1' }}
         run: |
-          body="$(node scripts/notify.mjs)"
-          [ -z "$body" ] && exit 0
-          num=$(gh issue list --label new-listings --state open --json number --jq '.[0].number')
-          if [ -z "$num" ]; then
-            gh label create new-listings --color 1D8F6E --force
-            num=$(gh issue create --title "New listings" --label new-listings --body "Each update that finds new matches posts a comment here. Watch this repository (or this issue) to get them by email or in the GitHub app." | grep -o '[0-9]*$')
-          fi
-          gh issue comment "$num" --body "$body"
+          gh api -X POST "repos/${{ github.repository }}/actions/workflows/update.yml/dispatches" \
+            -f ref=main -f 'inputs[mode]=loop'

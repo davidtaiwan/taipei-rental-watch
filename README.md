@@ -9,6 +9,6 @@ with cooking allowed.
 - `config.json`: search settings (districts, budget, walking radius, stations).
 - `scripts/crawler.js`: runs inside a browser page on 591 and extracts matching listings.
 - `scripts/scrape.mjs`: runs the crawler in headless Chromium and merges results into `data/`.
-- `.github/workflows/update.yml`: runs every 15 minutes and posts new matches to the "New listings" issue.
+- `.github/workflows/update.yml`: a long-running job checks every 15 minutes and starts its next round itself (GitHub's own schedule is too irregular for 15 minutes); new matches go to the "New listings" issue. Run it by hand for a single immediate check.
 
 Photos are shown from the listing sources' own image links.

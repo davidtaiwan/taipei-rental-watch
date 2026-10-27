@@ -491,13 +491,21 @@ function showChecked() {
 }
 setInterval(showChecked, 60000);
 
-// Latest run of the update job. Public repo, so no sign-in is needed to read it.
+// Latest one-off check ("Run workflow" on GitHub). The 15-minute loop runs separately and
+// is always active, so it is left out here. Public repo: no sign-in needed to read runs.
 async function latestRun() {
   try {
-    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/update.yml/runs?per_page=1`, { headers: { Accept: 'application/vnd.github+json' } });
+    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/update.yml/runs?per_page=20`, { headers: { Accept: 'application/vnd.github+json' } });
     if (!r.ok) return null;
-    return (await r.json()).workflow_runs?.[0] || null;
+    return ((await r.json()).workflow_runs || []).find((w) => !/loop/i.test(w.display_title || '')) || null;
   } catch { return null; }
+}
+
+function nextCheckText() {
+  const t = Date.parse(META.nextRun || '');
+  if (!t || t < Date.now() - 5 * 60000) return 'Next automatic check within 15 minutes.';
+  const at = new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return t > Date.now() ? `Next automatic check at ${at}.` : `Automatic check running now (due ${at}).`;
 }
 
 const statusEl = () => document.getElementById('upd-status');
@@ -558,10 +566,10 @@ async function updateNow() {
     const msg = await pullLatest();
     const run = await latestRun();
     if (run && run.status !== 'completed') {
-      setStatus(`${msg}. A new check is running now; this page will update itself when it finishes.`);
+      setStatus(`${msg}. The check you started is running; this page will update itself when it finishes.`);
       watchRun(Date.parse(run.created_at));
     } else {
-      setStatus(`${msg} · checked ${ago(META.lastRun)}. Next automatic check within 15 minutes. ${runLink}`);
+      setStatus(`${msg} · checked ${ago(META.lastRun)}. ${nextCheckText()} ${runLink}`);
     }
   } catch {
     setStatus('Could not reach the site. Check your connection and press Update again.');
