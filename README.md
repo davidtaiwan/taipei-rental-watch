@@ -6,7 +6,7 @@ Dongmen, Zhongshan, Ximen, Da'an, Da'an Park), at or under NT$28,000 per month i
 with cooking allowed.
 
 - `index.html`: the site (GitHub Pages).
-- `config.json`: search settings (districts, budget, walking radius, stations). Change the budget with the "Change budget" workflow (Actions tab, or the Change budget button on the site).
+- `config.json`: search settings. `collectMax` is the highest monthly cost collected (NT$40,000); `maxTotal` is the default budget on the site and the limit for "New listings" notifications (change it with the "Change notification budget" workflow). Each browser sets its own budget on the page.
 - `scripts/crawler.js`: runs inside a browser page on 591 and extracts matching listings.
 - `scripts/scrape.mjs`: runs the crawler in headless Chromium and merges results into `data/`.
 - `.github/workflows/update.yml`: a long-running job checks every 15 minutes and starts its next round itself (GitHub's own schedule is too irregular for 15 minutes); new matches go to the "New listings" issue. Run it by hand for a single immediate check.

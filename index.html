@@ -57,15 +57,12 @@ h1 { font: 800 30px/1 var(--display); letter-spacing: .01em; margin: 0; text-wra
 #refresh[aria-busy="true"] svg { animation: spin 1s linear infinite; }
 #refresh:disabled { opacity: .7; cursor: progress; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.budget-btn { border-style: dashed; }
-.budget-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; max-width: 720px; font-size: 13.5px; }
-.budget-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-.budget-now { margin: 0; font-size: 15px; }
-.budget-now b { font-variant-numeric: tabular-nums; }
-.budget-note { margin: 0; color: var(--muted); }
-.budget-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
-.budget-status { font-size: 12.5px; color: var(--muted); }
 .mono { font-family: var(--mono); }
+.budget-ctrl { gap: 10px; }
+.budget-input { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.budget-input input { width: 92px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; background: var(--surface); font-weight: 600; font-variant-numeric: tabular-nums; }
+.budget-input input:invalid { border-color: var(--new); }
+.budget-saved { font-size: 12px; color: var(--ok); min-width: 3em; }
 .upd-status { font-size: 12px; color: var(--muted); max-width: 280px; line-height: 1.35; }
 .upd-status:empty { display: none; }
 .stats b { display: block; font: 800 26px/1 var(--display); color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -190,30 +187,18 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <button class="chip toggle-filters" id="f-toggle" aria-expanded="false">More filters</button>
     </div>
     <div class="row more-filters">
-      <label class="ctrl" for="f-max"><span class="label">Max / month</span> <input type="range" id="f-max" min="10000" max="28000" step="500" value="28000"> <b id="f-max-v" style="font-variant-numeric:tabular-nums">28,000</b></label>
-      <button class="chip budget-btn" id="budget-open" aria-expanded="false" aria-controls="budget-panel">Change budget</button>
+      <div class="ctrl budget-ctrl">
+        <label class="label" for="f-budget">Budget / month</label>
+        <input type="range" id="f-max" min="10000" max="40000" step="500" value="28000" aria-label="Budget per month">
+        <span class="budget-input">NT$<input type="number" id="f-budget" min="5000" max="40000" step="500" value="28000" inputmode="numeric" aria-describedby="budget-saved"></span>
+        <span class="budget-saved" id="budget-saved" aria-live="polite"></span>
+      </div>
       <label class="ctrl" for="f-walk"><span class="label">Walk</span>
         <select id="f-walk"><option value="400">≤ 5 min</option><option value="640">≤ 8 min</option><option value="800" selected>≤ 10 min</option></select></label>
       <label class="ctrl" for="f-kind"><span class="label">Type</span>
         <select id="f-kind"><option value="">All types</option><option>Private studio</option><option>Studio in shared flat</option><option>Entire apartment</option></select></label>
       <label class="ctrl" for="f-sort"><span class="label">Sort</span>
         <select id="f-sort"><option value="new">Newest first</option><option value="price">Cheapest first</option><option value="pricedesc">Most expensive first</option><option value="near">Closest to MRT</option><option value="size">Largest first</option></select></label>
-    </div>
-    <div class="budget-panel" id="budget-panel" hidden>
-      <div class="budget-head">
-        <p class="budget-now">Search budget: <b>NT$<span id="budget-now">28,000</span></b> per month, including management fee</p>
-        <button class="btn" id="budget-close" aria-label="Close budget panel">Close</button>
-      </div>
-      <p class="budget-note">The site only collects listings at or under this amount. The <b>Max / month</b> slider only narrows what's shown from those.</p>
-      <ol class="budget-steps">
-        <li>Open the budget form on GitHub (you need to be signed in to GitHub).</li>
-        <li>Press <b>Run workflow</b>, type the new amount, for example <span class="mono">30000</span>, then press the green <b>Run workflow</b> button.</li>
-        <li>Come back to this page. Listings for the new budget appear in about 2–10 minutes and the page loads them on its own.</li>
-      </ol>
-      <div class="actions">
-        <a class="btn primary" id="budget-link" href="#" target="_blank" rel="noopener noreferrer">Open the budget form</a>
-        <span class="budget-status" id="budget-status" aria-live="polite"></span>
-      </div>
     </div>
     <div class="row more-filters">
       <span class="label">Must have</span>
@@ -275,7 +260,7 @@ const ago = (iso) => {
 };
 
 const state = {
-  stations: new Set(store.get('stations', [])), max: 28000, walk: 800, kind: '', sort: 'new',
+  stations: new Set(store.get('stations', [])), max: store.get('budget', null) ?? 28000, walk: 800, kind: '', sort: 'new',
   must: new Set(), view: '', saved: new Set(store.get('saved', [])), hidden: new Set(store.get('hidden', [])),
   shown: 30, open: new Set(),
   // Saved listings keep a copy, so they stay visible after the source takes them down.
@@ -400,7 +385,9 @@ function render() {
   const empty = document.getElementById('empty');
   empty.hidden = list.length > 0;
   empty.textContent = ALL.length ? 'No listings match these filters. Try a longer walk or fewer must-haves.' : 'Loading listings…';
-  const newCount = ALL.filter((l) => !state.hidden.has(l.id) && isNew(l)).length;
+  const inBudget = ALL.filter((l) => !state.hidden.has(l.id) && l.total <= state.max);
+  const newCount = inBudget.filter(isNew).length;
+  document.getElementById('st-total').textContent = ALL.length ? inBudget.length : '–';
   document.getElementById('st-saved').textContent = state.saved.size;
   document.getElementById('st-new').textContent = newCount;
   if (state.view === 'saved') {
@@ -481,8 +468,11 @@ document.addEventListener('click', (e) => {
   }
 });
 
-const maxEl = document.getElementById('f-max');
-maxEl.addEventListener('input', () => { state.max = +maxEl.value; document.getElementById('f-max-v').textContent = nt(state.max); state.shown = 30; render(); });
+document.getElementById('f-max').addEventListener('input', (e) => setBudget(e.target.value));
+const budgetBox = document.getElementById('f-budget');
+budgetBox.addEventListener('change', () => setBudget(budgetBox.value));
+budgetBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') { setBudget(budgetBox.value); budgetBox.blur(); } });
+budgetBox.addEventListener('blur', () => { budgetBox.value = state.max; });
 for (const [id, key, numeric] of [['f-walk', 'walk', true], ['f-kind', 'kind'], ['f-sort', 'sort']]) {
   document.getElementById(id).addEventListener('change', (e) => { state[key] = numeric ? +e.target.value : e.target.value; state.shown = 30; render(); });
 }
@@ -499,7 +489,8 @@ async function fetchData() {
     fetch(`data/meta.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
     fetch(`config.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))
   ]);
-  if (config.maxTotal) meta.budgetSetting = config.maxTotal;
+  if (config.maxTotal && !meta.budget) meta.budget = config.maxTotal;
+  if (config.collectMax && !meta.collectMax) meta.collectMax = config.collectMax;
   return { list, meta };
 }
 
@@ -508,23 +499,35 @@ function applyData(list, meta) {
   // Refresh saved copies with the latest data for listings that are still up.
   for (const l of ALL) if (state.saved.has(l.id)) state.savedSnap[l.id] = { savedAt: state.savedSnap[l.id]?.savedAt || new Date().toISOString(), listing: l };
   persistSaved();
-  document.getElementById('st-total').textContent = ALL.length;
-  applyBudget(META.budgetSetting || META.budget);
+  applyBudget();
   showChecked();
 }
 
-// The search budget lives in config.json; the slider tops out at it.
-let BUDGET = 28000;
-function applyBudget(b) {
-  if (!b) return;
-  const slider = document.getElementById('f-max');
-  const wasAtTop = state.max >= BUDGET;
-  BUDGET = b;
-  slider.max = Math.max(b, +slider.min);
-  if (wasAtTop || state.max > b) { state.max = b; slider.value = b; }
-  document.getElementById('f-max-v').textContent = nt(state.max);
-  document.getElementById('budget-sub').textContent = nt(b);
-  document.getElementById('budget-now').textContent = nt(b);
+// Budget: set on this page and remembered in this browser. The site collects listings up to
+// collectMax (NT$40,000); the default for a new browser is the budget in config.json.
+function applyBudget() {
+  const cap = META.collectMax || 40000;
+  if (store.get('budget', null) == null && META.budget) state.max = META.budget;
+  state.max = Math.min(state.max, cap);
+  for (const id of ['f-max', 'f-budget']) document.getElementById(id).max = cap;
+  showBudget();
+}
+function showBudget() {
+  document.getElementById('f-max').value = state.max;
+  const box = document.getElementById('f-budget');
+  if (document.activeElement !== box) box.value = state.max;
+  document.getElementById('budget-sub').textContent = nt(state.max);
+}
+let savedTimer;
+function setBudget(v) {
+  const cap = +document.getElementById('f-max').max;
+  v = Math.round(Math.min(Math.max(+v || 0, 5000), cap));
+  state.max = v; state.shown = 30;
+  store.set('budget', v);
+  showBudget(); render();
+  const el = document.getElementById('budget-saved');
+  el.textContent = 'Saved';
+  clearTimeout(savedTimer); savedTimer = setTimeout(() => { el.textContent = ''; }, 1500);
 }
 
 function showChecked() {
@@ -560,7 +563,7 @@ async function pullLatest() {
   const { list, meta } = await fetchData();
   applyData(list, meta);
   render();
-  const added = list.filter((l) => !before.has(l.id)).length;
+  const added = list.filter((l) => !before.has(l.id) && l.total <= state.max).length;
   const removed = [...before].filter((id) => !list.some((l) => l.id === id)).length;
   const parts = [];
   if (added) parts.push(`${added} new listing${added > 1 ? 's' : ''} added`);
@@ -623,28 +626,6 @@ async function updateNow() {
 
 document.getElementById('refresh').addEventListener('click', updateNow);
 
-// Change budget panel
-const budgetPanel = document.getElementById('budget-panel');
-const budgetOpenBtn = document.getElementById('budget-open');
-document.getElementById('budget-link').href = `https://github.com/${REPO}/actions/workflows/budget.yml`;
-function toggleBudget(open) {
-  budgetPanel.hidden = !open;
-  budgetOpenBtn.setAttribute('aria-expanded', open);
-  if (open) document.getElementById('budget-now').textContent = nt(BUDGET);
-}
-budgetOpenBtn.addEventListener('click', () => toggleBudget(budgetPanel.hidden));
-document.getElementById('budget-close').addEventListener('click', () => toggleBudget(false));
-document.getElementById('budget-link').addEventListener('click', () => {
-  const since = Date.now(), before = BUDGET;
-  document.getElementById('budget-status').textContent = 'Waiting for the new budget… this page will refresh itself.';
-  setTimeout(async () => {
-    await watchRun(since);
-    const changed = BUDGET !== before;
-    document.getElementById('budget-status').textContent = changed
-      ? `Budget is now NT$${nt(BUDGET)}. Listings updated.`
-      : 'No budget change seen yet. If you submitted the form, press Update in a few minutes.';
-  }, 1000);
-});
 // After opening GitHub to start a check, keep watching so the results appear here on their own.
 document.addEventListener('click', (e) => {
   if (e.target.closest('#run-link')) {
@@ -655,6 +636,7 @@ document.addEventListener('click', (e) => {
 
 async function load() {
   buildStationChips();
+  showBudget();
   render();
   try {
     const { list, meta } = await fetchData();

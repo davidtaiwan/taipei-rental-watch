@@ -1,6 +1,7 @@
 // Prints a Markdown summary of data/new.json for the "New listings" issue comment.
 import fs from 'node:fs';
-const items = JSON.parse(fs.readFileSync(new URL('../data/new.json', import.meta.url), 'utf8'));
+const cfg = JSON.parse(fs.readFileSync(new URL('../config.json', import.meta.url), 'utf8'));
+const items = JSON.parse(fs.readFileSync(new URL('../data/new.json', import.meta.url), 'utf8')).filter((l) => l.total <= cfg.maxTotal);
 if (!items.length) process.exit(0);
 const site = process.env.SITE_URL || '';
 const nt = (n) => 'NT$' + n.toLocaleString('en-US');

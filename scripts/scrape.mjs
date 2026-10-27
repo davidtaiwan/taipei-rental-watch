@@ -6,6 +6,9 @@ import path from 'node:path';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const cfg = JSON.parse(fs.readFileSync(path.join(root, 'config.json'), 'utf8'));
+// Collect everything up to collectMax; the site's own budget control filters below that.
+// maxTotal is the default budget on the site and the limit for issue notifications.
+const ceiling = cfg.collectMax || cfg.maxTotal;
 const crawler = fs.readFileSync(path.join(root, 'scripts/crawler.js'), 'utf8');
 const dataFile = path.join(root, 'data/listings.json');
 const metaFile = path.join(root, 'data/meta.json');
@@ -16,9 +19,10 @@ const store = fs.existsSync(dataFile) ? JSON.parse(fs.readFileSync(dataFile, 'ut
 const checked = fs.existsSync(checkedFile) ? JSON.parse(fs.readFileSync(checkedFile, 'utf8')) : {};
 const prevMeta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : {};
 // After a budget change, re-read listings we skipped earlier: some may now fit.
-if (prevMeta.budget != null && prevMeta.budget !== cfg.maxTotal) {
+const prevCeil = prevMeta.collectMax ?? prevMeta.budget;
+if (prevCeil != null && prevCeil !== ceiling) {
   for (const k of Object.keys(checked)) delete checked[k];
-  console.log(`Budget changed from ${prevMeta.budget} to ${cfg.maxTotal}; re-checking skipped listings.`);
+  console.log(`Price ceiling changed from ${prevCeil} to ${ceiling}; re-checking skipped listings.`);
 }
 const byId = new Map(store.map((l) => [l.id, l]));
 
@@ -45,7 +49,7 @@ const res = await page.evaluate(
     const fn = new Function(src + '; return crawl591;')();
     return fn(cfg);
   },
-  { src: crawler, cfg: { ...cfg, knownIds } },
+  { src: crawler, cfg: { ...cfg, maxTotal: ceiling, knownIds } },
 );
 await browser.close();
 
@@ -70,7 +74,7 @@ for (const l of byId.values()) {
 }
 // Drop 591 listings that have been gone from the search for 2+ days (rented or removed).
 // Also drop anything over the current budget (it may have been lowered).
-const out = [...byId.values()].filter((l) => (l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5) && l.total <= cfg.maxTotal);
+const out = [...byId.values()].filter((l) => (l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5) && l.total <= ceiling);
 out.sort((a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || b.id.localeCompare(a.id));
 for (const [id, iso] of Object.entries(checked)) if (!fresh(iso)) delete checked[id];
 
@@ -80,6 +84,7 @@ fs.writeFileSync(checkedFile, JSON.stringify(checked));
 const meta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : {};
 meta.lastRun = now;
 meta.budget = cfg.maxTotal;
+meta.collectMax = ceiling;
 meta.sources = { ...(meta.sources || {}), '591': { lastRun: now, inSearch: res.listCount, matched: out.filter((l) => l.src === '591').length } };
 fs.writeFileSync(metaFile, JSON.stringify(meta, null, 1));
 fs.writeFileSync(path.join(root, 'data/new.json'), JSON.stringify(out.filter((l) => fresh591.includes(l.id))));
