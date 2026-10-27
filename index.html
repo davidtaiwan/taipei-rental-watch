@@ -51,6 +51,14 @@ h1 { font: 800 30px/1 var(--display); letter-spacing: .01em; margin: 0; text-wra
 .btn.save svg { width: 15px; height: 15px; }
 .btn.save[aria-pressed="true"] svg { fill: currentColor; }
 .savednote { font-size: 12.5px; color: var(--muted); }
+.stats { flex-wrap: wrap; align-items: flex-end; }
+.updbox { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+#refresh svg { width: 15px; height: 15px; }
+#refresh[aria-busy="true"] svg { animation: spin 1s linear infinite; }
+#refresh:disabled { opacity: .7; cursor: progress; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.upd-status { font-size: 12px; color: var(--muted); max-width: 280px; line-height: 1.35; }
+.upd-status:empty { display: none; }
 .stats b { display: block; font: 800 26px/1 var(--display); color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---------- filters ---------- */
@@ -139,7 +147,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
   .filters.open .wrap .more-filters { display: flex; }
   .grid { grid-template-columns: 1fr; }
 }
-@media (prefers-reduced-motion: reduce) { .slides { scroll-behavior: auto; } }
+@media (prefers-reduced-motion: reduce) { .slides { scroll-behavior: auto; } #refresh[aria-busy="true"] svg { animation: none; } }
 </style>
 </head>
 <body>
@@ -157,6 +165,10 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <div><b id="st-new">–</b>new since last visit</div>
       <div><button class="statbtn" data-v="saved" aria-pressed="false" title="Show saved listings"><b id="st-saved">0</b>saved</button></div>
       <div><b id="st-upd">–</b>last checked</div>
+      <div class="updbox">
+        <button class="btn primary" id="refresh" title="Load the newest listings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>Update</button>
+        <span class="upd-status" id="upd-status" aria-live="polite"></span>
+      </div>
     </div>
   </div>
 </header>
@@ -449,22 +461,130 @@ for (const [id, key, numeric] of [['f-walk', 'walk', true], ['f-kind', 'kind'], 
   document.getElementById(id).addEventListener('change', (e) => { state[key] = numeric ? +e.target.value : e.target.value; state.shown = 30; render(); });
 }
 
+const REPO = 'davidtaiwan/taipei-rental-watch';
+const RUN_PAGE = `https://github.com/${REPO}/actions/workflows/update.yml`;
+let META = {};
+
+async function fetchData() {
+  // The cache-buster makes the browser and GitHub's CDN return the newest copy.
+  const t = Date.now();
+  const [list, meta] = await Promise.all([
+    fetch(`data/listings.json?t=${t}`, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    fetch(`data/meta.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))
+  ]);
+  return { list, meta };
+}
+
+function applyData(list, meta) {
+  ALL = list; META = meta || {};
+  // Refresh saved copies with the latest data for listings that are still up.
+  for (const l of ALL) if (state.saved.has(l.id)) state.savedSnap[l.id] = { savedAt: state.savedSnap[l.id]?.savedAt || new Date().toISOString(), listing: l };
+  persistSaved();
+  document.getElementById('st-total').textContent = ALL.length;
+  showChecked();
+}
+
+function showChecked() {
+  document.getElementById('st-upd').textContent = ago(META.lastRun);
+  const src = Object.entries(META.sources || {}).map(([k, v]) => `${k}: ${v.matched} matches, checked ${ago(v.lastRun)}`).join(' · ');
+  document.getElementById('src-line').textContent = src ? 'Sources — ' + src : '';
+}
+setInterval(showChecked, 60000);
+
+// Latest run of the update job. Public repo, so no sign-in is needed to read it.
+async function latestRun() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/update.yml/runs?per_page=1`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!r.ok) return null;
+    return (await r.json()).workflow_runs?.[0] || null;
+  } catch { return null; }
+}
+
+const statusEl = () => document.getElementById('upd-status');
+function setStatus(html) { statusEl().innerHTML = html; }
+const runLink = `<a href="${RUN_PAGE}" target="_blank" rel="noopener noreferrer" id="run-link">Run a new check on 591 now</a>`;
+
+async function pullLatest() {
+  const before = new Set(ALL.map((l) => l.id));
+  const { list, meta } = await fetchData();
+  applyData(list, meta);
+  render();
+  const added = list.filter((l) => !before.has(l.id)).length;
+  const removed = [...before].filter((id) => !list.some((l) => l.id === id)).length;
+  const parts = [];
+  if (added) parts.push(`${added} new listing${added > 1 ? 's' : ''} added`);
+  if (removed) parts.push(`${removed} taken down`);
+  return parts.length ? parts.join(', ') : 'No new listings';
+}
+
+let watching = false;
+// Waits for a running (or about-to-start) check to finish, then loads its results.
+async function watchRun(since) {
+  if (watching) return;
+  watching = true;
+  const startMeta = META.lastRun;
+  const deadline = Date.now() + 15 * 60000;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  try {
+    while (Date.now() < deadline) {
+      const run = await latestRun();
+      const isOurs = run && (!since || Date.parse(run.created_at) >= since - 60000);
+      if (isOurs && run.status === 'completed') break;
+      if (isOurs) setStatus(`Checking 591 now (started ${ago(run.created_at)}). This page will update itself when it finishes.`);
+      else setStatus(`Waiting for the check to start… ${runLink}`);
+      await sleep(25000);
+    }
+    // The site takes about a minute to publish new data after a check finishes.
+    for (let i = 0; i < 10 && Date.now() < deadline; i++) {
+      setStatus('Check finished. Loading the results…');
+      const { meta } = await fetchData();
+      if (meta.lastRun && meta.lastRun !== startMeta) break;
+      await sleep(20000);
+    }
+    const msg = await pullLatest();
+    setStatus(`${msg} · checked ${ago(META.lastRun)}`);
+  } catch {
+    setStatus('Could not load the newest data. Press Update to try again.');
+  } finally {
+    watching = false;
+  }
+}
+
+async function updateNow() {
+  const btn = document.getElementById('refresh');
+  btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+  setStatus('Loading the newest listings…');
+  try {
+    const msg = await pullLatest();
+    const run = await latestRun();
+    if (run && run.status !== 'completed') {
+      setStatus(`${msg}. A new check is running now; this page will update itself when it finishes.`);
+      watchRun(Date.parse(run.created_at));
+    } else {
+      setStatus(`${msg} · checked ${ago(META.lastRun)}. Next automatic check within 15 minutes. ${runLink}`);
+    }
+  } catch {
+    setStatus('Could not reach the site. Check your connection and press Update again.');
+  } finally {
+    btn.disabled = false; btn.removeAttribute('aria-busy');
+  }
+}
+
+document.getElementById('refresh').addEventListener('click', updateNow);
+// After opening GitHub to start a check, keep watching so the results appear here on their own.
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#run-link')) {
+    const since = Date.now();
+    setTimeout(() => watchRun(since), 1000);
+  }
+});
+
 async function load() {
   buildStationChips();
   render();
   try {
-    const [list, meta] = await Promise.all([
-      fetch('data/listings.json', { cache: 'no-cache' }).then((r) => r.json()),
-      fetch('data/meta.json', { cache: 'no-cache' }).then((r) => r.json()).catch(() => ({}))
-    ]);
-    ALL = list;
-    // Refresh saved copies with the latest data for listings that are still up.
-    for (const l of ALL) if (state.saved.has(l.id)) state.savedSnap[l.id] = { savedAt: state.savedSnap[l.id]?.savedAt || new Date().toISOString(), listing: l };
-    persistSaved();
-    document.getElementById('st-total').textContent = ALL.length;
-    document.getElementById('st-upd').textContent = ago(meta.lastRun);
-    const src = Object.entries(meta.sources || {}).map(([k, v]) => `${k}: ${v.matched} matches, checked ${ago(v.lastRun)}`).join(' · ');
-    document.getElementById('src-line').textContent = src ? 'Sources — ' + src : '';
+    const { list, meta } = await fetchData();
+    applyData(list, meta);
     // A link like #l22173746 (from a notification) opens that listing.
     const hash = location.hash.slice(1);
     if (/^l\d+$/.test(hash)) {
@@ -482,7 +602,7 @@ async function load() {
     setTimeout(() => store.set('lastVisit', new Date().toISOString()), 5000);
   } catch (e) {
     document.getElementById('empty').hidden = false;
-    document.getElementById('empty').textContent = 'Could not load listings. Reload the page to try again.';
+    document.getElementById('empty').textContent = 'Could not load listings. Press Update or reload the page to try again.';
   }
 }
 load();
