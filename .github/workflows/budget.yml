@@ -38,8 +38,9 @@ jobs:
             console.log("Budget: NT$" + c.maxTotal + " -> NT$" + b);
             c.maxTotal = b;
             fs.writeFileSync("config.json", JSON.stringify(c, null, 2) + "\n");
-            fs.appendFileSync(process.env.GITHUB_ENV, "NEW_BUDGET=" + b + "\n");
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/budget", String(b));
           '
+          NEW_BUDGET=$(cat "$RUNNER_TEMP/budget")
           git config user.name "listings-bot"
           git config user.email "listings-bot@users.noreply.github.com"
           git add config.json
