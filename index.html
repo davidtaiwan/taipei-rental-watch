@@ -57,6 +57,15 @@ h1 { font: 800 30px/1 var(--display); letter-spacing: .01em; margin: 0; text-wra
 #refresh[aria-busy="true"] svg { animation: spin 1s linear infinite; }
 #refresh:disabled { opacity: .7; cursor: progress; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.budget-btn { border-style: dashed; }
+.budget-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; max-width: 720px; font-size: 13.5px; }
+.budget-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.budget-now { margin: 0; font-size: 15px; }
+.budget-now b { font-variant-numeric: tabular-nums; }
+.budget-note { margin: 0; color: var(--muted); }
+.budget-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.budget-status { font-size: 12.5px; color: var(--muted); }
+.mono { font-family: var(--mono); }
 .upd-status { font-size: 12px; color: var(--muted); max-width: 280px; line-height: 1.35; }
 .upd-status:empty { display: none; }
 .stats b { display: block; font: 800 26px/1 var(--display); color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -157,7 +166,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <div class="brand-mark" aria-hidden="true">租</div>
       <div>
         <h1>Taipei Rental Watch</h1>
-        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$28,000 incl. management fee · cooking allowed</div>
+        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">28,000</span> incl. management fee · cooking allowed</div>
       </div>
     </div>
     <div class="stats">
@@ -182,12 +191,29 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
     </div>
     <div class="row more-filters">
       <label class="ctrl" for="f-max"><span class="label">Max / month</span> <input type="range" id="f-max" min="10000" max="28000" step="500" value="28000"> <b id="f-max-v" style="font-variant-numeric:tabular-nums">28,000</b></label>
+      <button class="chip budget-btn" id="budget-open" aria-expanded="false" aria-controls="budget-panel">Change budget</button>
       <label class="ctrl" for="f-walk"><span class="label">Walk</span>
         <select id="f-walk"><option value="400">≤ 5 min</option><option value="640">≤ 8 min</option><option value="800" selected>≤ 10 min</option></select></label>
       <label class="ctrl" for="f-kind"><span class="label">Type</span>
         <select id="f-kind"><option value="">All types</option><option>Private studio</option><option>Studio in shared flat</option><option>Entire apartment</option></select></label>
       <label class="ctrl" for="f-sort"><span class="label">Sort</span>
         <select id="f-sort"><option value="new">Newest first</option><option value="price">Cheapest first</option><option value="pricedesc">Most expensive first</option><option value="near">Closest to MRT</option><option value="size">Largest first</option></select></label>
+    </div>
+    <div class="budget-panel" id="budget-panel" hidden>
+      <div class="budget-head">
+        <p class="budget-now">Search budget: <b>NT$<span id="budget-now">28,000</span></b> per month, including management fee</p>
+        <button class="btn" id="budget-close" aria-label="Close budget panel">Close</button>
+      </div>
+      <p class="budget-note">The site only collects listings at or under this amount. The <b>Max / month</b> slider only narrows what's shown from those.</p>
+      <ol class="budget-steps">
+        <li>Open the budget form on GitHub (you need to be signed in to GitHub).</li>
+        <li>Press <b>Run workflow</b>, type the new amount, for example <span class="mono">30000</span>, then press the green <b>Run workflow</b> button.</li>
+        <li>Come back to this page. Listings for the new budget appear in about 2–10 minutes and the page loads them on its own.</li>
+      </ol>
+      <div class="actions">
+        <a class="btn primary" id="budget-link" href="#" target="_blank" rel="noopener noreferrer">Open the budget form</a>
+        <span class="budget-status" id="budget-status" aria-live="polite"></span>
+      </div>
     </div>
     <div class="row more-filters">
       <span class="label">Must have</span>
@@ -468,10 +494,12 @@ let META = {};
 async function fetchData() {
   // The cache-buster makes the browser and GitHub's CDN return the newest copy.
   const t = Date.now();
-  const [list, meta] = await Promise.all([
+  const [list, meta, config] = await Promise.all([
     fetch(`data/listings.json?t=${t}`, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-    fetch(`data/meta.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))
+    fetch(`data/meta.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
+    fetch(`config.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))
   ]);
+  if (config.maxTotal) meta.budgetSetting = config.maxTotal;
   return { list, meta };
 }
 
@@ -481,7 +509,22 @@ function applyData(list, meta) {
   for (const l of ALL) if (state.saved.has(l.id)) state.savedSnap[l.id] = { savedAt: state.savedSnap[l.id]?.savedAt || new Date().toISOString(), listing: l };
   persistSaved();
   document.getElementById('st-total').textContent = ALL.length;
+  applyBudget(META.budgetSetting || META.budget);
   showChecked();
+}
+
+// The search budget lives in config.json; the slider tops out at it.
+let BUDGET = 28000;
+function applyBudget(b) {
+  if (!b) return;
+  const slider = document.getElementById('f-max');
+  const wasAtTop = state.max >= BUDGET;
+  BUDGET = b;
+  slider.max = Math.max(b, +slider.min);
+  if (wasAtTop || state.max > b) { state.max = b; slider.value = b; }
+  document.getElementById('f-max-v').textContent = nt(state.max);
+  document.getElementById('budget-sub').textContent = nt(b);
+  document.getElementById('budget-now').textContent = nt(b);
 }
 
 function showChecked() {
@@ -579,6 +622,29 @@ async function updateNow() {
 }
 
 document.getElementById('refresh').addEventListener('click', updateNow);
+
+// Change budget panel
+const budgetPanel = document.getElementById('budget-panel');
+const budgetOpenBtn = document.getElementById('budget-open');
+document.getElementById('budget-link').href = `https://github.com/${REPO}/actions/workflows/budget.yml`;
+function toggleBudget(open) {
+  budgetPanel.hidden = !open;
+  budgetOpenBtn.setAttribute('aria-expanded', open);
+  if (open) document.getElementById('budget-now').textContent = nt(BUDGET);
+}
+budgetOpenBtn.addEventListener('click', () => toggleBudget(budgetPanel.hidden));
+document.getElementById('budget-close').addEventListener('click', () => toggleBudget(false));
+document.getElementById('budget-link').addEventListener('click', () => {
+  const since = Date.now(), before = BUDGET;
+  document.getElementById('budget-status').textContent = 'Waiting for the new budget… this page will refresh itself.';
+  setTimeout(async () => {
+    await watchRun(since);
+    const changed = BUDGET !== before;
+    document.getElementById('budget-status').textContent = changed
+      ? `Budget is now NT$${nt(BUDGET)}. Listings updated.`
+      : 'No budget change seen yet. If you submitted the form, press Update in a few minutes.';
+  }, 1000);
+});
 // After opening GitHub to start a check, keep watching so the results appear here on their own.
 document.addEventListener('click', (e) => {
   if (e.target.closest('#run-link')) {

@@ -14,6 +14,12 @@ const checkedFile = path.join(root, 'data/checked.json');
 const now = new Date().toISOString();
 const store = fs.existsSync(dataFile) ? JSON.parse(fs.readFileSync(dataFile, 'utf8')) : [];
 const checked = fs.existsSync(checkedFile) ? JSON.parse(fs.readFileSync(checkedFile, 'utf8')) : {};
+const prevMeta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : {};
+// After a budget change, re-read listings we skipped earlier: some may now fit.
+if (prevMeta.budget != null && prevMeta.budget !== cfg.maxTotal) {
+  for (const k of Object.keys(checked)) delete checked[k];
+  console.log(`Budget changed from ${prevMeta.budget} to ${cfg.maxTotal}; re-checking skipped listings.`);
+}
 const byId = new Map(store.map((l) => [l.id, l]));
 
 // Re-check a listing's details at most once every 3 days; skip ids rejected in the last 3 days.
@@ -63,7 +69,8 @@ for (const l of byId.values()) {
   if (seen.has(l.id)) l.lastSeen = now;
 }
 // Drop 591 listings that have been gone from the search for 2+ days (rented or removed).
-const out = [...byId.values()].filter((l) => l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5);
+// Also drop anything over the current budget (it may have been lowered).
+const out = [...byId.values()].filter((l) => (l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5) && l.total <= cfg.maxTotal);
 out.sort((a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || b.id.localeCompare(a.id));
 for (const [id, iso] of Object.entries(checked)) if (!fresh(iso)) delete checked[id];
 
@@ -72,6 +79,7 @@ fs.writeFileSync(dataFile, JSON.stringify(out));
 fs.writeFileSync(checkedFile, JSON.stringify(checked));
 const meta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : {};
 meta.lastRun = now;
+meta.budget = cfg.maxTotal;
 meta.sources = { ...(meta.sources || {}), '591': { lastRun: now, inSearch: res.listCount, matched: out.filter((l) => l.src === '591').length } };
 fs.writeFileSync(metaFile, JSON.stringify(meta, null, 1));
 fs.writeFileSync(path.join(root, 'data/new.json'), JSON.stringify(out.filter((l) => fresh591.includes(l.id))));

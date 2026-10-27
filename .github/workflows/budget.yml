@@ -1,0 +1,57 @@
+name: Change budget
+run-name: Change budget to NT$${{ inputs.budget }}
+
+# Sets the maximum monthly cost (rent + management fee) the site collects,
+# then runs a check right away with the new budget.
+
+on:
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: "New budget: maximum NT$ per month, including management fee (for example 30000)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  set-budget:
+    runs-on: ubuntu-latest
+    env:
+      BUDGET: ${{ inputs.budget }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Save the new budget
+        run: |
+          node -e '
+            const fs = require("fs");
+            const raw = String(process.env.BUDGET || "").replace(/[,\s]|NT\$?|元/gi, "");
+            const b = Math.round(Number(raw));
+            if (!Number.isFinite(b) || b < 5000 || b > 200000) {
+              console.log("::error::The budget must be a number between 5000 and 200000 (you entered \"" + process.env.BUDGET + "\").");
+              process.exit(1);
+            }
+            const c = JSON.parse(fs.readFileSync("config.json", "utf8"));
+            console.log("Budget: NT$" + c.maxTotal + " -> NT$" + b);
+            c.maxTotal = b;
+            fs.writeFileSync("config.json", JSON.stringify(c, null, 2) + "\n");
+            fs.appendFileSync(process.env.GITHUB_ENV, "NEW_BUDGET=" + b + "\n");
+          '
+          git config user.name "listings-bot"
+          git config user.email "listings-bot@users.noreply.github.com"
+          git add config.json
+          if git diff --cached --quiet; then
+            echo "The budget was already NT\$$NEW_BUDGET."
+          else
+            git commit -q -m "Change budget to NT\$$NEW_BUDGET"
+            for i in 1 2 3 4; do git push -q && break; git pull -q --rebase origin main; sleep 3; done
+          fi
+          echo "### Budget set to NT\$$NEW_BUDGET per month (including management fee)" >> "$GITHUB_STEP_SUMMARY"
+          echo "A check with the new budget has started. New listings appear on the site in about 2–10 minutes." >> "$GITHUB_STEP_SUMMARY"
+      - name: Run a check with the new budget
+        run: |
+          gh api -X POST "repos/${{ github.repository }}/actions/workflows/update.yml/dispatches" \
+            -f ref=main -f 'inputs[mode]=once'
