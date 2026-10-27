@@ -1,19 +1,17 @@
 {
- "lastRun": "2026-10-26T23:09:09.520Z",
+ "lastRun": "2026-10-27T02:06:24.102Z",
  "sources": {
   "591": {
-   "lastRun": "2026-10-26T23:09:09.520Z",
-   "inSearch": 1233,
+   "lastRun": "2026-10-27T02:06:24.102Z",
+   "inSearch": 1229,
    "matched": 398
   }
  },
  "translate": {
-  "at": "2026-10-26T23:10:35.537Z",
-  "done": 1,
+  "at": "2026-10-27T02:07:47.614Z",
+  "done": 0,
   "failed": 0,
   "remaining": 0,
-  "errors": [
-   "gtx 429"
-  ]
+  "errors": []
  }
 }
