@@ -1,18 +1,18 @@
 {
- "lastRun": "2026-10-27T12:00:17.170Z",
+ "lastRun": "2026-10-27T12:15:16.445Z",
  "sources": {
   "591": {
-   "lastRun": "2026-10-27T12:00:17.170Z",
-   "inSearch": 1248,
-   "matched": 431
+   "lastRun": "2026-10-27T12:15:16.445Z",
+   "inSearch": 1247,
+   "matched": 432
   }
  },
  "translate": {
-  "at": "2026-10-27T12:02:04.921Z",
-  "done": 2,
+  "at": "2026-10-27T12:16:52.661Z",
+  "done": 1,
   "failed": 0,
   "remaining": 0,
   "errors": []
  },
- "nextRun": "2026-10-27T12:15:16Z"
+ "nextRun": "2026-10-27T12:30:16Z"
 }
