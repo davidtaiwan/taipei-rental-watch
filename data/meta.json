@@ -1,22 +1,22 @@
 {
- "lastRun": "2026-10-28T14:41:52.305Z",
+ "lastRun": "2026-10-28T14:56:51.675Z",
  "sources": {
   "591": {
-   "lastRun": "2026-10-28T14:41:52.305Z",
-   "inSearch": 2294,
-   "matched": 795
+   "lastRun": "2026-10-28T14:56:51.675Z",
+   "inSearch": 2302,
+   "matched": 797
   }
  },
  "translate": {
-  "at": "2026-10-28T14:44:32.626Z",
-  "done": 1,
+  "at": "2026-10-28T14:59:33.109Z",
+  "done": 2,
   "failed": 0,
   "remaining": 0,
   "errors": [
    "gtx 429"
   ]
  },
- "nextRun": "2026-10-28T14:56:51Z",
+ "nextRun": "2026-10-28T15:11:51Z",
  "budget": 40000,
  "collectMax": 40000
 }
