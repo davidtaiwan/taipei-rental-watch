@@ -163,7 +163,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <div class="brand-mark" aria-hidden="true">租</div>
       <div>
         <h1>Taipei Rental Watch</h1>
-        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">28,000</span> incl. management fee · cooking allowed</div>
+        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">40,000</span> incl. management fee · cooking allowed</div>
       </div>
     </div>
     <div class="stats">
@@ -189,8 +189,8 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
     <div class="row more-filters">
       <div class="ctrl budget-ctrl">
         <label class="label" for="f-budget">Budget / month</label>
-        <input type="range" id="f-max" min="10000" max="40000" step="500" value="28000" aria-label="Budget per month">
-        <span class="budget-input">NT$<input type="number" id="f-budget" min="5000" max="40000" step="500" value="28000" inputmode="numeric" aria-describedby="budget-saved"></span>
+        <input type="range" id="f-max" min="0" max="40000" step="500" value="40000" aria-label="Budget per month">
+        <span class="budget-input">NT$<input type="number" id="f-budget" min="0" max="40000" step="500" value="40000" inputmode="numeric" aria-describedby="budget-saved"></span>
         <span class="budget-saved" id="budget-saved" aria-live="polite"></span>
       </div>
       <label class="ctrl" for="f-walk"><span class="label">Walk</span>
@@ -260,7 +260,7 @@ const ago = (iso) => {
 };
 
 const state = {
-  stations: new Set(store.get('stations', [])), max: store.get('budget', null) ?? 28000, walk: 800, kind: '', sort: 'new',
+  stations: new Set(store.get('stations', [])), max: store.get('budget2', null) ?? 40000, walk: 800, kind: '', sort: 'new',
   must: new Set(), view: '', saved: new Set(store.get('saved', [])), hidden: new Set(store.get('hidden', [])),
   shown: 30, open: new Set(),
   // Saved listings keep a copy, so they stay visible after the source takes them down.
@@ -489,7 +489,7 @@ async function fetchData() {
     fetch(`data/meta.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({})),
     fetch(`config.json?t=${t}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => ({}))
   ]);
-  if (config.maxTotal && !meta.budget) meta.budget = config.maxTotal;
+  if (config.maxTotal) meta.budget = config.maxTotal;
   if (config.collectMax && !meta.collectMax) meta.collectMax = config.collectMax;
   return { list, meta };
 }
@@ -507,7 +507,7 @@ function applyData(list, meta) {
 // collectMax (NT$40,000); the default for a new browser is the budget in config.json.
 function applyBudget() {
   const cap = META.collectMax || 40000;
-  if (store.get('budget', null) == null && META.budget) state.max = META.budget;
+  if (store.get('budget2', null) == null && META.budget) state.max = META.budget;
   state.max = Math.min(state.max, cap);
   for (const id of ['f-max', 'f-budget']) document.getElementById(id).max = cap;
   showBudget();
@@ -521,9 +521,9 @@ function showBudget() {
 let savedTimer;
 function setBudget(v) {
   const cap = +document.getElementById('f-max').max;
-  v = Math.round(Math.min(Math.max(+v || 0, 5000), cap));
+  v = Math.round(Math.min(Math.max(+v || 0, 0), cap));
   state.max = v; state.shown = 30;
-  store.set('budget', v);
+  store.set('budget2', v);
   showBudget(); render();
   const el = document.getElementById('budget-saved');
   el.textContent = 'Saved';

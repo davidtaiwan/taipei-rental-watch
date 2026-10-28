@@ -5,7 +5,7 @@
     3,
     1
   ],
-  "maxTotal": 28000,
+  "maxTotal": 40000,
   "collectMax": 40000,
   "radius": 800,
   "maxPages": 40,
