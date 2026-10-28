@@ -120,6 +120,7 @@ main .wrap { padding-block: 18px 40px; }
 .feat svg { width: 15px; height: 15px; flex: none; }
 .feat.yes { color: var(--ink); } .feat.yes svg { color: var(--ok); }
 .feat.no { color: var(--off); }
+.feat.warn { color: var(--new); font-weight: 600; } .feat.warn svg { color: var(--new); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .btn { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 6px 11px; cursor: pointer; font-size: 13px; text-decoration: none; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
@@ -163,7 +164,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <div class="brand-mark" aria-hidden="true">租</div>
       <div>
         <h1>Taipei Rental Watch</h1>
-        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">40,000</span> incl. management fee · cooking allowed</div>
+        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">40,000</span> incl. management fee · cooking allowed (under NT$10,000 also rooms with shared bathroom and places without cooking)</div>
       </div>
     </div>
     <div class="stats">
@@ -196,12 +197,14 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <label class="ctrl" for="f-walk"><span class="label">Walk</span>
         <select id="f-walk"><option value="400">≤ 5 min</option><option value="640">≤ 8 min</option><option value="800" selected>≤ 10 min</option></select></label>
       <label class="ctrl" for="f-kind"><span class="label">Type</span>
-        <select id="f-kind"><option value="">All types</option><option>Private studio</option><option>Studio in shared flat</option><option>Entire apartment</option></select></label>
+        <select id="f-kind"><option value="">All types</option><option>Private studio</option><option>Studio in shared flat</option><option>Entire apartment</option><option>Room (shared bathroom)</option></select></label>
       <label class="ctrl" for="f-sort"><span class="label">Sort</span>
         <select id="f-sort"><option value="new">Newest first</option><option value="price">Cheapest first</option><option value="pricedesc">Most expensive first</option><option value="near">Closest to MRT</option><option value="size">Largest first</option></select></label>
     </div>
     <div class="row more-filters">
       <span class="label">Must have</span>
+      <button class="chip" data-f="cookOk" aria-pressed="false">Cooking allowed</button>
+      <button class="chip" data-f="privBath" aria-pressed="false">Private bathroom</button>
       <button class="chip" data-f="window" aria-pressed="false">Window mentioned</button>
       <button class="chip" data-f="kitchen" aria-pressed="false">Kitchen gear mentioned</button>
       <button class="chip" data-f="balcony" aria-pressed="false">Balcony</button>
@@ -291,7 +294,7 @@ function filtered() {
     if (state.kind && l.kind !== state.kind) return false;
     const st = l.stations.filter((s) => s.m <= state.walk && (!state.stations.size || state.stations.has(s.name)));
     if (!st.length) return false;
-    for (const f of state.must) if (!l[f]) return false;
+    for (const f of state.must) if (!(f === 'cookOk' ? l.cooking !== false : f === 'privBath' ? l.kind !== 'Room (shared bathroom)' : l[f])) return false;
     return true;
   });
   const near = (l) => Math.min(...l.stations.map((s) => s.m));
@@ -336,7 +339,7 @@ function card(l) {
       <div class="where">${esc(l.district ? l.district + ' District' : '')}${l.building ? ' · ' + esc(l.building) : ''}${inc ? ' · ' + esc(inc) : ''}</div>
       <div class="stations">${l.stations.map((s) => `<span class="stn">${codes(s.name)}${esc(s.name)} <em>${mins(s.m)} min · ${s.m} m</em></span>`).join('')}</div>
       <div class="feats">
-        ${feat(true, 'Cooking allowed')}${feat(l.kitchen, 'Kitchen gear')}${feat(l.window, 'Window')}
+        ${l.cooking === false ? '<span class="feat warn">' + ICON.no + 'No cooking</span>' : feat(true, 'Cooking allowed')}${l.kind === 'Room (shared bathroom)' ? '<span class="feat warn">' + ICON.no + 'Shared bathroom</span>' : ''}${feat(l.kitchen, 'Kitchen gear')}${feat(l.window, 'Window')}
         ${feat(l.balcony, 'Balcony')}${feat(l.dryer, 'Dryer')}${feat(l.gym, 'Gym')}${feat(l.moto, 'Scooter parking')}
       </div>
       ${saved && l._savedAt ? `<div class="savednote">Saved ${new Date(l._savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${l._gone ? ' · the source has taken this listing down, so it may already be rented' : ''}</div>` : ''}

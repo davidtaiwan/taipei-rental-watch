@@ -7,6 +7,16 @@
   ],
   "maxTotal": 40000,
   "collectMax": 40000,
+  "cheap": {
+    "max": 10000,
+    "kinds": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "note": "Under this price: also rooms with a shared bathroom (kind 4) and places without cooking"
+  },
   "radius": 800,
   "maxPages": 40,
   "concurrency": 3,

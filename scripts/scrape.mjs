@@ -49,7 +49,17 @@ const res = await page.evaluate(
     const fn = new Function(src + '; return crawl591;')();
     return fn(cfg);
   },
-  { src: crawler, cfg: { ...cfg, maxTotal: ceiling, knownIds } },
+  {
+    src: crawler,
+    cfg: {
+      ...cfg, maxTotal: ceiling, knownIds,
+      cheapMax: cfg.cheap?.max || 0,
+      searches: [
+        ...cfg.kinds.map((kind) => ({ kind, max: ceiling, cook: true })),
+        ...(cfg.cheap ? cfg.cheap.kinds.map((kind) => ({ kind, max: cfg.cheap.max, cook: false })) : []),
+      ],
+    },
+  },
 );
 await browser.close();
 
@@ -74,7 +84,7 @@ for (const l of byId.values()) {
 }
 // Drop 591 listings that have been gone from the search for 2+ days (rented or removed).
 // Also drop anything over the current budget (it may have been lowered).
-const out = [...byId.values()].filter((l) => (l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5) && l.total <= ceiling);
+const out = [...byId.values()].filter((l) => (l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5) && l.total <= ceiling && (l.cooking !== false || l.total <= (cfg.cheap?.max || 0)));
 out.sort((a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || b.id.localeCompare(a.id));
 for (const [id, iso] of Object.entries(checked)) if (!fresh(iso)) delete checked[id];
 

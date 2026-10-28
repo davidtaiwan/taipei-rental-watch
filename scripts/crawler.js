@@ -36,15 +36,22 @@ async function crawl591(CFG) {
   }
   const cards = new Map();
   let listCount = 0;
-  for (const kind of CFG.kinds) {
-    const base = `https://rent.591.com.tw/list?region=1&section=${CFG.sections}&kind=${kind}&price=0_${CFG.maxTotal}&other=cook&sort=posttime_desc`;
+  // Each search: { kind, max, cook }. Main searches require cooking up to the price ceiling;
+  // the "cheap" searches take every listing under a lower price, cooking or not.
+  const searches = CFG.searches || CFG.kinds.map((kind) => ({ kind, max: CFG.maxTotal, cook: true }));
+  const addCard = (x, srch) => {
+    const old = cards.get(x.id);
+    cards.set(x.id, { ...x, max: Math.max(old?.max || 0, srch.max) });
+  };
+  for (const srch of searches) {
+    const base = `https://rent.591.com.tw/list?region=1&section=${CFG.sections}&kind=${srch.kind}&price=0_${srch.max}${srch.cook ? '&other=cook' : ''}&sort=posttime_desc`;
     const p0 = await listPage(base, 0);
     listCount += p0.cnt;
-    p0.items.forEach((x) => cards.set(x.id, x));
+    p0.items.forEach((x) => addCard(x, srch));
     const pages = Math.min(Math.ceil(p0.cnt / 30), CFG.maxPages);
     for (let p = 1; p < pages; p++) {
       const r = await listPage(base, p * 30);
-      r.items.forEach((x) => cards.set(x.id, x));
+      r.items.forEach((x) => addCard(x, srch));
       await sleep(CFG.delayMs);
     }
   }
@@ -58,11 +65,11 @@ async function crawl591(CFG) {
     const tot = (L.find((s) => /合計/.test(s)) || '').match(/([\d,]+)元/);
     return { rent, total: tot ? num(tot[1]) : rent + (extraN || 0) };
   }
-  const pre = [...cards.values()].map((x) => ({ ...x, ...cardMoney(x) })).filter((x) => x.rent && x.total <= CFG.maxTotal);
+  const pre = [...cards.values()].map((x) => ({ ...x, ...cardMoney(x) })).filter((x) => x.rent && x.total <= x.max);
 
   // ---------- detail pages ----------
   const skip = new Set(CFG.knownIds || []);
-  const KIND = { '整層住家': 'Entire apartment', '獨立套房': 'Private studio', '分租套房': 'Studio in shared flat' };
+  const KIND = { '整層住家': 'Entire apartment', '獨立套房': 'Private studio', '分租套房': 'Studio in shared flat', '雅房': 'Room (shared bathroom)' };
   const BLD = { '公寓': 'Walk-up', '電梯大樓': 'Elevator building', '華廈': 'Mid-rise with elevator', '透天厝': 'Townhouse', '別墅': 'Villa' };
   const DIST = { '中正區': 'Zhongzheng', '大同區': 'Datong', '中山區': 'Zhongshan', '大安區': "Da'an", '萬華區': 'Wanhua' };
   const INC = { '水費': 'water', '電費': 'electricity', '網路': 'internet', '第四台': 'cable TV', '第四臺': 'cable TV', '瓦斯費': 'gas', '管理費': 'management fee', '清潔費': 'cleaning', '車位租金': 'parking' };
@@ -123,6 +130,8 @@ async function crawl591(CFG) {
       age: num((info.match(/屋齡(\d+)年/) || [])[1]),
       legalUse: /法定用途住家用/.test(info) ? 'Residential' : /法定用途商業用/.test(info) ? 'Commercial' : '',
       facilities: facOn, missing: facOff,
+      // Cooking: from the listing's rules ("開伙可開伙" / "開伙不可開伙"); null when not stated.
+      cooking: /開伙\s*不可開伙|不可開伙/.test(rules) ? false : /開伙\s*可開伙|可開伙/.test(rules + head) ? true : null,
       kitchen: /廚房|流理台|廚具|電磁爐|瓦斯爐|感應爐|IH爐|爐台|廚櫃/.test(all) || facOn.includes('Natural gas'),
       window: !noWin && /窗|採光|日照|陽光/.test(all), noWindow: noWin,
       balcony: facOn.includes('Balcony') || /有陽台|陽台\d/.test(info + head),
@@ -142,7 +151,8 @@ async function crawl591(CFG) {
       try {
         const r = detail(p, await getHTML('https://rent.591.com.tw/' + p.id));
         checked.push(p.id);
-        if (r.stations.length && !r.noWindow && r.total <= CFG.maxTotal) out.push(r);
+        const cheapOk = r.total <= (CFG.cheapMax || 0);
+        if (r.stations.length && !r.noWindow && r.total <= CFG.maxTotal && (r.cooking !== false || cheapOk)) out.push(r);
       } catch (e) {}
       await sleep(CFG.delayMs);
     }
