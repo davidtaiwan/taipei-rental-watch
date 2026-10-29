@@ -1,20 +1,20 @@
 {
- "lastRun": "2026-10-29T15:54:13.787Z",
+ "lastRun": "2026-10-29T16:09:13.960Z",
  "sources": {
   "591": {
-   "lastRun": "2026-10-29T15:54:13.787Z",
-   "inSearch": 2289,
+   "lastRun": "2026-10-29T16:09:13.960Z",
+   "inSearch": 2284,
    "matched": 807
   }
  },
  "translate": {
-  "at": "2026-10-29T15:56:49.163Z",
+  "at": "2026-10-29T16:11:51.154Z",
   "done": 0,
   "failed": 0,
   "remaining": 0,
   "errors": []
  },
- "nextRun": "2026-10-29T16:09:13Z",
+ "nextRun": "2026-10-29T16:24:13Z",
  "budget": 40000,
  "collectMax": 40000
 }
