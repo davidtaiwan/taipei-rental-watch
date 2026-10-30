@@ -71,7 +71,7 @@ async function crawl591(CFG) {
   const skip = new Set(CFG.knownIds || []);
   const KIND = { '整層住家': 'Entire apartment', '獨立套房': 'Private studio', '分租套房': 'Studio in shared flat', '雅房': 'Room (shared bathroom)' };
   const BLD = { '公寓': 'Walk-up', '電梯大樓': 'Elevator building', '華廈': 'Mid-rise with elevator', '透天厝': 'Townhouse', '別墅': 'Villa' };
-  const DIST = { '中正區': 'Zhongzheng', '大同區': 'Datong', '中山區': 'Zhongshan', '大安區': "Da'an", '萬華區': 'Wanhua' };
+  const DIST = { '中正區': 'Zhongzheng', '大同區': 'Datong', '中山區': 'Zhongshan', '大安區': "Da'an", '萬華區': 'Wanhua', '文山區': 'Wenshan' };
   const INC = { '水費': 'water', '電費': 'electricity', '網路': 'internet', '第四台': 'cable TV', '第四臺': 'cable TV', '瓦斯費': 'gas', '管理費': 'management fee', '清潔費': 'cleaning', '車位租金': 'parking' };
   const FAC = { '冰箱': 'Fridge', '洗衣機': 'Washing machine', '電視': 'TV', '冷氣': 'Air conditioning', '熱水器': 'Water heater', '床': 'Bed', '衣櫃': 'Wardrobe', '第四台': 'Cable TV', '網路': 'Internet', '天然瓦斯': 'Natural gas', '沙發': 'Sofa', '桌椅': 'Table & chairs', '陽台': 'Balcony', '電梯': 'Elevator', '車位': 'Parking space' };
   const TAG = { '新上架': 'New', '租金補貼': 'Rent subsidy OK', '可報稅': 'Tax-deductible', '近商圈': 'Near shops', '可入籍': 'Household registration OK', '可短租': 'Short lease OK', '免服務費': 'No agent fee', '社會住宅': 'Social housing', '屋主直租': 'Owner lists directly', '押一付一': '1-month deposit', '免押金': 'No deposit', '影片賞屋': 'Video tour', '高齡友善': 'Senior friendly', '拎包入住': 'Fully furnished', '可養寵物': 'Pets OK' };

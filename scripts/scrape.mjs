@@ -20,7 +20,9 @@ const checked = fs.existsSync(checkedFile) ? JSON.parse(fs.readFileSync(checkedF
 const prevMeta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf8')) : {};
 // After a budget change, re-read listings we skipped earlier: some may now fit.
 const prevCeil = prevMeta.collectMax ?? prevMeta.budget;
-if (prevCeil != null && prevCeil !== ceiling) {
+// Also re-check skipped listings when the search area changes (districts, stations, radius, types).
+const searchSig = JSON.stringify([cfg.sections, cfg.stations, cfg.radius, cfg.kinds, cfg.cheap]);
+if ((prevCeil != null && prevCeil !== ceiling) || (prevMeta.searchSig && prevMeta.searchSig !== searchSig) || !prevMeta.searchSig) {
   for (const k of Object.keys(checked)) delete checked[k];
   console.log(`Price ceiling changed from ${prevCeil} to ${ceiling}; re-checking skipped listings.`);
 }
@@ -95,6 +97,7 @@ const meta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf
 meta.lastRun = now;
 meta.budget = cfg.maxTotal;
 meta.collectMax = ceiling;
+meta.searchSig = searchSig;
 meta.sources = { ...(meta.sources || {}), '591': { lastRun: now, inSearch: res.listCount, matched: out.filter((l) => l.src === '591').length } };
 fs.writeFileSync(metaFile, JSON.stringify(meta, null, 1));
 fs.writeFileSync(path.join(root, 'data/new.json'), JSON.stringify(out.filter((l) => fresh591.includes(l.id))));

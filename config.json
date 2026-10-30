@@ -1,5 +1,5 @@
 {
-  "sections": "1,2,3,5,6",
+  "sections": "1,2,3,5,6,12",
   "kinds": [
     2,
     3,
@@ -32,6 +32,13 @@
     "中山": "Zhongshan",
     "西門": "Ximen",
     "大安": "Da'an",
-    "大安森林公園": "Da'an Park"
+    "大安森林公園": "Da'an Park",
+    "萬隆": "Wanlong",
+    "景美": "Jingmei",
+    "辛亥": "Xinhai",
+    "萬芳醫院": "Wanfang Hospital",
+    "萬芳社區": "Wanfang Community",
+    "木柵": "Muzha",
+    "動物園": "Taipei Zoo"
   }
 }

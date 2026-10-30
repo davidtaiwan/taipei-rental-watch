@@ -2,7 +2,7 @@
 
 A small site that lists rental studios and apartments in Taipei near selected MRT stations
 (Gongguan, Guting, Taipower Building, CKS Memorial Hall, NTU Hospital, Taipei Main Station,
-Dongmen, Zhongshan, Ximen, Da'an, Da'an Park), at or under NT$28,000 per month including fees,
+Dongmen, Zhongshan, Ximen, Da'an, Da'an Park, plus Wenshan District's Wanlong, Jingmei, Xinhai, Wanfang Hospital, Wanfang Community, Muzha and Taipei Zoo), at or under NT$28,000 per month including fees,
 with cooking allowed.
 
 - `index.html`: the site (GitHub Pages).
