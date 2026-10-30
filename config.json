@@ -18,6 +18,9 @@
     "note": "Under this price: also rooms with a shared bathroom (kind 4) and places without cooking"
   },
   "radius": 800,
+  "anyDistanceDistricts": [
+    "Wenshan"
+  ],
   "maxPages": 40,
   "concurrency": 3,
   "delayMs": 400,

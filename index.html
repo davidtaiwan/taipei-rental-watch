@@ -120,6 +120,7 @@ main .wrap { padding-block: 18px 40px; }
 .feat svg { width: 15px; height: 15px; flex: none; }
 .feat.yes { color: var(--ink); } .feat.yes svg { color: var(--ok); }
 .feat.no { color: var(--off); }
+.stn.far { border-style: dashed; color: var(--muted); }
 .feat.warn { color: var(--new); font-weight: 600; } .feat.warn svg { color: var(--new); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .btn { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 6px 11px; cursor: pointer; font-size: 13px; text-decoration: none; color: var(--ink); display: inline-flex; gap: 6px; align-items: center; }
@@ -195,7 +196,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
         <span class="budget-saved" id="budget-saved" aria-live="polite"></span>
       </div>
       <label class="ctrl" for="f-walk"><span class="label">Walk</span>
-        <select id="f-walk"><option value="400">≤ 5 min</option><option value="640">≤ 8 min</option><option value="800" selected>≤ 10 min</option></select></label>
+        <select id="f-walk"><option value="400">≤ 5 min</option><option value="640">≤ 8 min</option><option value="800">≤ 10 min</option><option value="99999" selected>Any (Wenshan)</option></select></label>
       <label class="ctrl" for="f-kind"><span class="label">Type</span>
         <select id="f-kind"><option value="">All types</option><option>Private studio</option><option>Studio in shared flat</option><option>Entire apartment</option><option>Room (shared bathroom)</option></select></label>
       <label class="ctrl" for="f-sort"><span class="label">Sort</span>
@@ -265,7 +266,7 @@ const ago = (iso) => {
 };
 
 const state = {
-  stations: new Set(store.get('stations', [])), max: store.get('budget2', null) ?? 40000, walk: 800, kind: '', sort: 'new',
+  stations: new Set(store.get('stations', [])), max: store.get('budget2', null) ?? 40000, walk: 99999, kind: '', sort: 'new',
   must: new Set(), view: '', saved: new Set(store.get('saved', [])), hidden: new Set(store.get('hidden', [])),
   shown: 30, open: new Set(),
   // Saved listings keep a copy, so they stay visible after the source takes them down.
@@ -295,11 +296,14 @@ function filtered() {
     if (l.total > state.max) return false;
     if (state.kind && l.kind !== state.kind) return false;
     const st = l.stations.filter((s) => s.m <= state.walk && (!state.stations.size || state.stations.has(s.name)));
-    if (!st.length) return false;
+    // Wenshan listings far from MRT: shown with "Any" walking distance when no station is picked, or with the Wenshan chip.
+    const farOk = !l.stations.length && state.walk > 800 && (!state.stations.size || state.stations.has(WENSHAN_ALL));
+    const wenshanOk = state.stations.has(WENSHAN_ALL) && l.district === 'Wenshan' && (l.stations.some((s) => s.m <= state.walk) || farOk);
+    if (!st.length && !farOk && !wenshanOk) return false;
     for (const f of state.must) if (!(f === 'cookOk' ? l.cooking !== false : f === 'privBath' ? l.kind !== 'Room (shared bathroom)' : l[f])) return false;
     return true;
   });
-  const near = (l) => Math.min(...l.stations.map((s) => s.m));
+  const near = (l) => l.stations.length ? Math.min(...l.stations.map((s) => s.m)) : (l.nearest?.m || 99999);
   const cmp = {
     new: (a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || b.id.localeCompare(a.id),
     price: (a, b) => a.total - b.total,
@@ -339,7 +343,8 @@ function card(l) {
       <div class="headline">${esc(headline)}</div>
       ${l.titleEn ? `<div class="tagline">“${esc(l.titleEn)}”</div>` : ''}
       <div class="where">${esc(l.district ? l.district + ' District' : '')}${l.building ? ' · ' + esc(l.building) : ''}${inc ? ' · ' + esc(inc) : ''}</div>
-      <div class="stations">${l.stations.map((s) => `<span class="stn">${codes(s.name)}${esc(s.name)} <em>${mins(s.m)} min · ${s.m} m</em></span>`).join('')}</div>
+      <div class="stations">${l.stations.length ? l.stations.map((s) => `<span class="stn">${codes(s.name)}${esc(s.name)} <em>${mins(s.m)} min · ${s.m} m</em></span>`).join('')
+        : `<span class="stn far">${l.nearest ? `${codes(l.nearest.name)}Nearest MRT: ${esc(l.nearest.name)} <em>${mins(l.nearest.m)} min · ${nt(l.nearest.m)} m</em>` : `Over 10 min walk to MRT${l.landmark?.zh ? ` <em class="zh">· ${esc(l.landmark.zh)}${l.landmark.m ? ' ' + nt(l.landmark.m) + ' m' : ''}</em>` : ''}`}</span>`}</div>
       <div class="feats">
         ${l.cooking === false ? '<span class="feat warn">' + ICON.no + 'No cooking</span>' : feat(true, 'Cooking allowed')}${l.kind === 'Room (shared bathroom)' ? '<span class="feat warn">' + ICON.no + 'Shared bathroom</span>' : ''}${feat(l.kitchen, 'Kitchen gear')}${feat(l.window, 'Window')}
         ${feat(l.balcony, 'Balcony')}${feat(l.dryer, 'Dryer')}${feat(l.gym, 'Gym')}${feat(l.moto, 'Scooter parking')}
@@ -414,9 +419,10 @@ function watchSlides(el) {
   }, { passive: true });
 }
 
+const WENSHAN_ALL = 'All of Wenshan';
 function buildStationChips() {
   const box = document.getElementById('f-stations');
-  box.innerHTML = Object.keys(STN).map((n) => {
+  box.innerHTML = `<button class="chip" data-st="${WENSHAN_ALL}" aria-pressed="${state.stations.has(WENSHAN_ALL)}">${WENSHAN_ALL}</button>` + Object.keys(STN).map((n) => {
     const dots = STN[n].map((c) => `<span class="dot" style="background:var(--${c.replace(/\d+/g, '')})"></span>`).join('');
     return `<button class="chip" data-st="${esc(n)}" aria-pressed="${state.stations.has(n)}"><span class="dots">${dots}</span>${esc(n)}</button>`;
   }).join('');

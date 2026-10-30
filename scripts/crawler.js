@@ -94,11 +94,18 @@ async function crawl591(CFG) {
 
     // stations within radius
     const st = {};
-    const add = (n, m) => { n = norm(n); if (ST[n] && m <= CFG.radius && (!(n in st) || st[n] > m)) st[n] = m; };
+    let nearAny = null; // closest listed station at any distance (for listings far from MRT)
+    const add = (n, m) => {
+      n = norm(n);
+      if (!ST[n]) return;
+      if (!nearAny || m < nearAny.m) nearAny = { name: ST[n], zh: n, m };
+      if (m <= CFG.radius && (!(n in st) || st[n] > m)) st[n] = m;
+    };
     trafficTxt.replace(/(\S+?)\s*(\d+)(?=\s|$)/g, (_, n, m) => add(n, +m));
     const L = p.leaf, li = L.findIndex((s) => s.startsWith('距'));
     if (li >= 0) add(L[li].slice(1), num(L[li + 1]) || 99999);
     const stations = Object.entries(st).sort((a, b) => a[1] - b[1]).map(([zh, m]) => ({ name: ST[zh], zh, m }));
+    const landmark = li >= 0 ? { zh: L[li].slice(1), m: num(L[li + 1]) || null } : null;
 
     const kz = Object.keys(KIND).find((k) => head.includes(k));
     const lay = (head.match(/(\d房\d廳(\d衛)?)/) || [])[1] || '';
@@ -125,6 +132,7 @@ async function crawl591(CFG) {
       rent: p.rent, fees: inc.includes('management fee') ? extra : (extra || fee), total,
       includes: inc, deposit: dep, agentFee: /不收服務費|免服務費/.test(price + head) ? 'No' : /收取服務費|收服務費/.test(price) ? 'Yes' : '',
       district: DIST[(addr.match(/^(\S+?區)/) || [])[1]] || '', addressZh: addr.slice(0, 60), stations,
+      nearest: stations.length ? null : nearAny, landmark: stations.length ? null : landmark,
       lease, gender: /限女/.test(rules) ? 'Women only' : /限男/.test(rules) ? 'Men only' : /男女皆可/.test(rules) ? 'Anyone' : '',
       pets: /不可養寵物/.test(rules) ? 'No' : /可養寵物/.test(rules) ? 'Yes' : '',
       age: num((info.match(/屋齡(\d+)年/) || [])[1]),
@@ -152,7 +160,8 @@ async function crawl591(CFG) {
         const r = detail(p, await getHTML('https://rent.591.com.tw/' + p.id));
         checked.push(p.id);
         const cheapOk = r.total <= (CFG.cheapMax || 0);
-        if (r.stations.length && !r.noWindow && r.total <= CFG.maxTotal && (r.cooking !== false || cheapOk)) out.push(r);
+        const anyDist = (CFG.anyDistanceDistricts || []).includes(r.district);
+        if ((r.stations.length || anyDist) && !r.noWindow && r.total <= CFG.maxTotal && (r.cooking !== false || cheapOk)) out.push(r);
       } catch (e) {}
       await sleep(CFG.delayMs);
     }

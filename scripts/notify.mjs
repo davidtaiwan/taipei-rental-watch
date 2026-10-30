@@ -6,7 +6,8 @@ if (!items.length) process.exit(0);
 const site = process.env.SITE_URL || '';
 const nt = (n) => 'NT$' + n.toLocaleString('en-US');
 const lines = items.slice(0, 40).map((l) => {
-  const st = l.stations.map((s) => `${s.name} ${Math.max(1, Math.round(s.m / 80))} min`).join(', ');
+  const st = l.stations.length ? l.stations.map((s) => `${s.name} ${Math.max(1, Math.round(s.m / 80))} min`).join(', ')
+    : `${l.district || ''} District${l.nearest ? `, ${l.nearest.name} MRT ${Math.round(l.nearest.m / 80)} min walk` : ', over 10 min from MRT'}`;
   const extras = [l.balcony && 'balcony', l.dryer && 'dryer', l.gym && 'gym', l.moto && 'scooter parking'].filter(Boolean).join(', ');
   const img = l.photos?.[0] ? `<img src="https://img1.591.com.tw/house/${l.photos[0]}!510x400.jpg" width="160" align="right">` : '';
   return `${img}\n**${nt(l.total)}/mo** · ${l.kind || 'Listing'}${l.ping ? ` · ${l.ping} ping (${l.sqm} m²)` : ''}${l.floor ? ` · floor ${l.floor}` : ''}  \nNear ${st}${extras ? `  \nHas: ${extras}` : ''}  \n[Open on ${l.src}](${l.url})${site ? ` · [See on site](${site}#l${l.id})` : ''}\n<br clear="all">`;

@@ -21,7 +21,7 @@ const prevMeta = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 
 // After a budget change, re-read listings we skipped earlier: some may now fit.
 const prevCeil = prevMeta.collectMax ?? prevMeta.budget;
 // Also re-check skipped listings when the search area changes (districts, stations, radius, types).
-const searchSig = JSON.stringify([cfg.sections, cfg.stations, cfg.radius, cfg.kinds, cfg.cheap]);
+const searchSig = JSON.stringify([cfg.sections, cfg.stations, cfg.radius, cfg.kinds, cfg.cheap, cfg.anyDistanceDistricts]);
 if ((prevCeil != null && prevCeil !== ceiling) || (prevMeta.searchSig && prevMeta.searchSig !== searchSig) || !prevMeta.searchSig) {
   for (const k of Object.keys(checked)) delete checked[k];
   console.log(`Price ceiling changed from ${prevCeil} to ${ceiling}; re-checking skipped listings.`);
