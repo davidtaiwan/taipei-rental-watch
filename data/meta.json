@@ -1,20 +1,20 @@
 {
- "lastRun": "2026-10-31T02:40:46.168Z",
+ "lastRun": "2026-10-31T02:55:45.763Z",
  "sources": {
   "591": {
-   "lastRun": "2026-10-31T02:40:46.168Z",
-   "inSearch": 2588,
-   "matched": 1138
+   "lastRun": "2026-10-31T02:55:45.763Z",
+   "inSearch": 2589,
+   "matched": 1136
   }
  },
  "translate": {
-  "at": "2026-10-31T02:43:28.418Z",
-  "done": 0,
+  "at": "2026-10-31T02:58:31.393Z",
+  "done": 2,
   "failed": 0,
   "remaining": 0,
   "errors": []
  },
- "nextRun": "2026-10-31T02:55:45Z",
+ "nextRun": "2026-10-31T03:10:45Z",
  "budget": 40000,
  "collectMax": 40000,
  "searchSig": "[\"1,2,3,5,6,12\",{\"公館\":\"Gongguan\",\"古亭\":\"Guting\",\"台電大樓\":\"Taipower Building\",\"中正紀念堂\":\"CKS Memorial Hall\",\"台大醫院\":\"NTU Hospital\",\"台北車站\":\"Taipei Main Station\",\"東門\":\"Dongmen\",\"中山\":\"Zhongshan\",\"西門\":\"Ximen\",\"大安\":\"Da'an\",\"大安森林公園\":\"Da'an Park\",\"萬隆\":\"Wanlong\",\"景美\":\"Jingmei\",\"辛亥\":\"Xinhai\",\"萬芳醫院\":\"Wanfang Hospital\",\"萬芳社區\":\"Wanfang Community\",\"木柵\":\"Muzha\",\"動物園\":\"Taipei Zoo\"},800,[2,3,1],{\"max\":10000,\"kinds\":[1,2,3,4],\"note\":\"Under this price: also rooms with a shared bathroom (kind 4) and places without cooking\"},[\"Wenshan\"]]"
