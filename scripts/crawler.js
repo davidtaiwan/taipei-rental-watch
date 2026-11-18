@@ -129,6 +129,8 @@ async function crawl591(CFG) {
       id: p.id, src: '591', url: 'https://rent.591.com.tw/' + p.id, titleZh: p.title,
       kind: KIND[kz] || '', layout: lay.replace(/(\d)房/, '$1 bed · ').replace(/(\d)廳/, '$1 living · ').replace(/(\d)衛/, '$1 bath').replace(/ · $/, ''),
       ping, sqm: ping ? Math.round(ping * 3.3058) : null, floor, building: BLD[bz] || '',
+      // Elevator: ticked in the equipment list, or the building is an elevator building.
+      elevator: facOn.includes('Elevator') || bz === '電梯大樓' || /電梯\s*有/.test(info),
       rent: p.rent, fees: inc.includes('management fee') ? extra : (extra || fee), total,
       includes: inc, deposit: dep, agentFee: /不收服務費|免服務費/.test(price + head) ? 'No' : /收取服務費|收服務費/.test(price) ? 'Yes' : '',
       district: DIST[(addr.match(/^(\S+?區)/) || [])[1]] || '', addressZh: addr.slice(0, 60), stations,
@@ -161,7 +163,8 @@ async function crawl591(CFG) {
         checked.push(p.id);
         const cheapOk = r.total <= (CFG.cheapMax || 0);
         const anyDist = (CFG.anyDistanceDistricts || []).includes(r.district);
-        if ((r.stations.length || anyDist) && !r.noWindow && r.total <= CFG.maxTotal && (r.cooking !== false || cheapOk)) out.push(r);
+        const elevOk = !CFG.requireElevator || r.elevator;
+        if (elevOk && (r.stations.length || anyDist) && !r.noWindow && r.total <= CFG.maxTotal && (r.cooking !== false || cheapOk)) out.push(r);
       } catch (e) {}
       await sleep(CFG.delayMs);
     }

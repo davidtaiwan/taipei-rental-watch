@@ -165,7 +165,7 @@ footer .wrap { padding-block: 20px 34px; display: grid; gap: 6px; }
       <div class="brand-mark" aria-hidden="true">租</div>
       <div>
         <h1>Taipei Rental Watch</h1>
-        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">40,000</span> incl. management fee · cooking allowed (under NT$10,000 also rooms with shared bathroom and places without cooking)</div>
+        <div class="sub">Studios &amp; apartments near your MRT stations · max NT$<span id="budget-sub">40,000</span> incl. management fee · elevator only · cooking allowed (under NT$10,000 also rooms with shared bathroom and places without cooking)</div>
       </div>
     </div>
     <div class="stats">
@@ -347,7 +347,7 @@ function card(l) {
         : `<span class="stn far">${l.nearest ? `${codes(l.nearest.name)}Nearest MRT: ${esc(l.nearest.name)} <em>${mins(l.nearest.m)} min · ${nt(l.nearest.m)} m</em>` : `Over 10 min walk to MRT${l.landmark?.zh ? ` <em class="zh">· ${esc(l.landmark.zh)}${l.landmark.m ? ' ' + nt(l.landmark.m) + ' m' : ''}</em>` : ''}`}</span>`}</div>
       <div class="feats">
         ${l.cooking === false ? '<span class="feat warn">' + ICON.no + 'No cooking</span>' : feat(true, 'Cooking allowed')}${l.kind === 'Room (shared bathroom)' ? '<span class="feat warn">' + ICON.no + 'Shared bathroom</span>' : ''}${feat(l.kitchen, 'Kitchen gear')}${feat(l.window, 'Window')}
-        ${feat(l.balcony, 'Balcony')}${feat(l.dryer, 'Dryer')}${feat(l.gym, 'Gym')}${feat(l.moto, 'Scooter parking')}
+        ${feat(true, 'Elevator')}${feat(l.balcony, 'Balcony')}${feat(l.dryer, 'Dryer')}${feat(l.gym, 'Gym')}${feat(l.moto, 'Scooter parking')}
       </div>
       ${saved && l._savedAt ? `<div class="savednote">Saved ${new Date(l._savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${l._gone ? ' · the source has taken this listing down, so it may already be rented' : ''}</div>` : ''}
       <div class="actions">

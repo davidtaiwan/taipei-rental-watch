@@ -7,6 +7,7 @@
   ],
   "maxTotal": 40000,
   "collectMax": 40000,
+  "requireElevator": true,
   "cheap": {
     "max": 10000,
     "kinds": [

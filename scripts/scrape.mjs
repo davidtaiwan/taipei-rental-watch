@@ -86,6 +86,9 @@ for (const l of byId.values()) {
 }
 // Drop 591 listings that have been gone from the search for 2+ days (rented or removed).
 // Also drop anything over the current budget (it may have been lowered).
+// Elevator rule also applies to listings stored before it existed.
+const hasElevator = (l) => l.elevator ?? ((l.facilities || []).includes('Elevator') || l.building === 'Elevator building');
+if (cfg.requireElevator) for (const [id, l] of byId) if (!hasElevator(l)) { checked[id] = now; byId.delete(id); }
 const out = [...byId.values()].filter((l) => (l.src !== '591' || Date.now() - Date.parse(l.lastSeen) < 2 * 864e5) && l.total <= ceiling && (l.cooking !== false || l.total <= (cfg.cheap?.max || 0)));
 out.sort((a, b) => (b.firstSeen || '').localeCompare(a.firstSeen || '') || b.id.localeCompare(a.id));
 for (const [id, iso] of Object.entries(checked)) if (!fresh(iso)) delete checked[id];
